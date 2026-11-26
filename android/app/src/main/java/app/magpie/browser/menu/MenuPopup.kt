@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
 import androidx.compose.material.icons.outlined.Add
@@ -41,11 +40,12 @@ import app.magpie.browser.browser.Step
 import app.magpie.browser.browser.Tab
 import app.magpie.browser.browser.Zoom
 import app.magpie.browser.password.Service
+import app.magpie.browser.site.Site
+import app.magpie.browser.theme.CONTROL_SHAPE
 import app.magpie.browser.theme.Toggle
 
 private val ZOOM_LEVEL_WIDTH = 48.dp
 private val ZOOM_BUTTON_SIZE = 36.dp
-private val ZOOM_LEVEL_SHAPE = RoundedCornerShape(6.dp)
 
 class Menu(val browser: Browser, private val onOpen: (Panel) -> Unit, private val onDismiss: () -> Unit) {
     var layer by mutableStateOf(Layer.Root)
@@ -55,6 +55,11 @@ class Menu(val browser: Browser, private val onOpen: (Panel) -> Unit, private va
 
     fun enter(layer: Layer) {
         this.layer = layer
+    }
+
+    fun back() {
+        if (layer == Layer.Root) return onDismiss()
+        enter(Layer.Root)
     }
 
     fun show(panel: Panel) = onOpen(panel)
@@ -70,7 +75,7 @@ class Menu(val browser: Browser, private val onOpen: (Panel) -> Unit, private va
 @Composable
 private fun ZoomButton(icon: ImageVector, description: String, onClick: (() -> Unit)?) {
     val colors = MaterialTheme.colorScheme
-    IconButton(enabled = onClick != null, onClick = onClick ?: {}, modifier = Modifier.size(ZOOM_BUTTON_SIZE)) {
+    IconButton(enabled = onClick != null, onClick = onClick ?: {}, modifier = Modifier.size(ZOOM_BUTTON_SIZE), shape = CONTROL_SHAPE) {
         Icon(icon, contentDescription = description, Modifier.size(ICON_SIZE), tint = if (onClick != null) colors.onSurface else colors.outline)
     }
 }
@@ -85,7 +90,7 @@ private fun ZoomLevel(zoom: Zoom, onReset: (() -> Unit)?) {
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier
             .width(ZOOM_LEVEL_WIDTH)
-            .clip(ZOOM_LEVEL_SHAPE)
+            .clip(CONTROL_SHAPE)
             .clickable(enabled = onReset != null, onClick = onReset ?: {})
             .padding(vertical = 8.dp),
     )
@@ -100,6 +105,17 @@ private fun ZoomBand(tab: Tab?) {
             ZoomLevel(tab?.zoom ?: Zoom.DEFAULT, stepper(Step.Reset))
             ZoomButton(Icons.Outlined.Add, "Zoom in", stepper(Step.In))
         }
+    }
+}
+
+@Composable
+private fun ForceDark(browser: Browser, page: Tab?) {
+    val settings = browser.settings
+    val forceDark = settings.forceDark
+    val site = page?.let { Site.of(it.url) }
+    val toggle = site?.let { { settings.forceDark = forceDark.toggle(it) } }
+    Item(Icons.Outlined.DarkMode, "Force Dark Mode", onClick = toggle) {
+        site?.let { Toggle(forceDark.on(it), onChange = { toggle?.invoke() }) }
     }
 }
 
@@ -123,10 +139,7 @@ private fun RootLayer(menu: Menu) {
     Item(Icons.Outlined.DesktopWindows, "Desktop Site", onClick = page?.let { { menu.run(it::toggleDesktop) } }) {
         page?.let { tab -> Toggle(tab.desktop, onChange = { menu.run(tab::toggleDesktop) }) }
     }
-    val forceDark = settings.forceDark
-    Item(Icons.Outlined.DarkMode, "Force Dark Mode", onClick = { settings.forceDark = forceDark.copy(enabled = !forceDark.enabled) }) {
-        Toggle(forceDark.enabled, onChange = { settings.forceDark = forceDark.copy(enabled = it) })
-    }
+    ForceDark(browser, page)
     Divider()
     Item(Icons.Outlined.Settings, "Settings", onClick = { menu.show(Panel.Settings) })
 }
@@ -134,7 +147,7 @@ private fun RootLayer(menu: Menu) {
 @Composable
 fun MenuPopup(browser: Browser, onOpen: (Panel) -> Unit, onDismiss: () -> Unit) {
     val menu = remember(browser) { Menu(browser, onOpen, onDismiss) }
-    Floating(browser.settings.menuSide, onDismiss) {
+    Floating(browser.settings.menuSide, onDismiss, onBack = menu::back) {
         when (menu.layer) {
             Layer.Root -> RootLayer(menu)
             Layer.History -> HistoryLayer(menu)

@@ -27,10 +27,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
-private val SHAPE = RoundedCornerShape(8.dp)
-private val CHOICES_SHAPE = RoundedCornerShape(8.dp)
 private val CHOICE_SHAPE = RoundedCornerShape(6.dp)
-private val FIELD_PADDING = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)
+private val FIELD_PADDING = Modifier.fillMaxWidth().padding(horizontal = GUTTER, vertical = 4.dp)
 
 @Composable
 private fun colors(): TextFieldColors = TextFieldDefaults.colors(
@@ -43,12 +41,12 @@ private fun colors(): TextFieldColors = TextFieldDefaults.colors(
 )
 
 @Composable
-fun Field(state: TextFieldState, label: String, keyboard: KeyboardType = KeyboardType.Text, onDone: (() -> Unit)? = null) {
+fun Field(state: TextFieldState, label: String?, keyboard: KeyboardType = KeyboardType.Text, onDone: (() -> Unit)? = null) {
     TextField(
         state = state,
-        label = { Text(label) },
+        label = label?.let { { Text(it) } },
         lineLimits = TextFieldLineLimits.SingleLine,
-        shape = SHAPE,
+        shape = CONTROL_SHAPE,
         keyboardOptions = KeyboardOptions(
             keyboardType = keyboard,
             imeAction = if (onDone == null) ImeAction.Default else ImeAction.Done,
@@ -62,15 +60,15 @@ fun Field(state: TextFieldState, label: String, keyboard: KeyboardType = Keyboar
 
 @Composable
 fun SecretField(state: TextFieldState, label: String) {
-    SecureTextField(state = state, label = { Text(label) }, shape = SHAPE, colors = colors(), modifier = FIELD_PADDING)
+    SecureTextField(state = state, label = { Text(label) }, shape = CONTROL_SHAPE, colors = colors(), modifier = FIELD_PADDING)
 }
 
 @Composable
 fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
     Row(
         Modifier.fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clip(CHOICES_SHAPE)
+            .padding(horizontal = GUTTER, vertical = 6.dp)
+            .clip(CONTROL_SHAPE)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),

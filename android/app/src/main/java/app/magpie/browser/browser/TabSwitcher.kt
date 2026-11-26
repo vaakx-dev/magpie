@@ -4,13 +4,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -82,6 +82,8 @@ import app.magpie.browser.settings.MenuSide
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import app.magpie.browser.space.SpaceDialog
+import app.magpie.browser.theme.CARD_SHAPE
+import app.magpie.browser.theme.Confirmation
 import app.magpie.browser.theme.Count
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.SearchBox
@@ -95,7 +97,7 @@ private enum class Mode(val search: String) { Tabs("Search your tabs"), Spaces("
 private const val MAX_SWIPE_FADE = 0.7f
 private const val SPACE_MARKS = 5
 private const val SETTLE_SCALE = 1.02f
-private val CARD_SHAPE = RoundedCornerShape(12.dp)
+private const val MUTED_ALPHA = 0.6f
 private val PREVIEW_CORNER = 8.dp
 private val SHAPE = RoundedCornerShape(PREVIEW_CORNER)
 private val SEGMENT_SHAPE = RoundedCornerShape(6.dp)
@@ -153,7 +155,7 @@ private fun TabCard(tab: Tab, hero: Hero, active: Boolean, selected: Boolean?, o
     val fadePx = with(density) { FADE_DISTANCE.toPx() }
     val throwPx = with(density) { THROW_DISTANCE.toPx() }
     val drag = rememberDraggableState { delta -> scope.launch { offset.snapTo(offset.value + delta) } }
-    val ring = if (active) Modifier.border(2.dp, colors.onSurface, CARD_SHAPE) else Modifier
+    val (header, ink) = if (active && selected == null) colors.onSurface to colors.surface else colors.surface to colors.onSurface
     DisposableEffect(tab) { onDispose { hero.forget(tab) } }
     Column(
         Modifier.height(CARD_HEIGHT)
@@ -177,21 +179,24 @@ private fun TabCard(tab: Tab, hero: Hero, active: Boolean, selected: Boolean?, o
             )
             .clip(CARD_SHAPE)
             .background(colors.surface)
-            .then(ring)
             .clickable(onClick = onTap),
     ) {
-        Row(Modifier.height(36.dp).padding(start = 10.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.height(36.dp).fillMaxWidth().background(header).padding(start = 10.dp, end = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Favicon(tab.url, 20.dp, tab.retention)
             Text(
                 tab.label,
                 Modifier.weight(1f).padding(horizontal = 8.dp),
+                color = ink,
                 fontSize = 12.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             when (selected) {
                 null -> IconButton(onClick = onClose, modifier = Modifier.size(32.dp), shape = SHAPE) {
-                    Icon(Icons.Outlined.Close, "Close tab", Modifier.size(17.dp), tint = colors.onSurfaceVariant)
+                    Icon(Icons.Outlined.Close, "Close tab", Modifier.size(17.dp), tint = ink)
                 }
                 else -> Check(selected)
             }
@@ -225,14 +230,14 @@ private fun DrawScope.backdrop(color: Color, hero: Hero) {
 @Composable
 private fun SpaceCard(space: Space, tabs: List<Tab>, active: Boolean, onPick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val ring = if (active) Modifier.border(2.dp, colors.onSurface, CARD_SHAPE) else Modifier
+    val (fill, ink) = if (active) colors.onSurface to colors.surface else colors.surface to colors.onSurface
     Column(
-        Modifier.height(SPACE_CARD_HEIGHT).clip(CARD_SHAPE).background(colors.surface).then(ring).clickable(onClick = onPick).padding(12.dp),
+        Modifier.height(SPACE_CARD_HEIGHT).clip(CARD_SHAPE).background(fill).clickable(onClick = onPick).padding(12.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Column {
-            Text(space.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(tabCount(tabs.size), fontSize = 12.sp, color = colors.onSurfaceVariant)
+            Text(space.name, color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tabCount(tabs.size), color = ink.copy(alpha = MUTED_ALPHA), fontSize = 12.sp)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { tabs.take(SPACE_MARKS).forEach { Favicon(it.url, 22.dp, it.retention) } }
     }
@@ -312,6 +317,7 @@ private class Switcher(val browser: Browser) {
     var menu by mutableStateOf(false)
     var creating by mutableStateOf(false)
     var clearing by mutableStateOf(false)
+    var closingAll by mutableStateOf(false)
 
     val space: Space get() = browser.space.takeUnless { it.profile == Profile.Private } ?: browser.spaces.saved.first()
 
@@ -362,7 +368,7 @@ private fun SwitcherMenu(switcher: Switcher, onSettings: () -> Unit, onDismiss: 
         Item(Icons.Outlined.VisibilityOff, "New private tab", onClick = { openTab(browser::openPrivate) })
         Item(Icons.Outlined.AddToPhotos, "New space", onClick = { choose { switcher.creating = true } })
         Divider()
-        Item(Icons.Outlined.Close, "Close all tabs", onClick = { choose { switcher.tabs.forEach(browser::close) } })
+        Item(Icons.Outlined.Close, "Close all tabs", onClick = { choose { switcher.closingAll = true } }.takeIf { switcher.tabs.isNotEmpty() })
         Item(Icons.Outlined.CheckCircleOutline, "Select tabs", onClick = { choose(switcher::select) })
         Divider()
         Item(Icons.Outlined.DeleteSweep, "Delete browsing data", onClick = { choose { switcher.clearing = true } })
@@ -445,14 +451,33 @@ private fun empty(switcher: Switcher, query: String): String = when {
 }
 
 @Composable
-fun TabSwitcher(browser: Browser, hero: Hero, onSettings: () -> Unit) {
+private fun ConfirmCloseAll(switcher: Switcher) {
+    val tabs = switcher.tabs
+    val place = if (switcher.mode == Mode.Private) "Private" else switcher.space.name
+    Confirmation(
+        "Close all tabs?",
+        "Closes ${tabCount(tabs.size)} in $place.",
+        "Close all",
+        onConfirm = {
+            tabs.forEach(switcher.browser::close)
+            switcher.closingAll = false
+        },
+        onDismiss = { switcher.closingAll = false },
+    )
+}
+
+@Composable
+fun TabSwitcher(browser: Browser, hero: Hero, notices: @Composable BoxScope.() -> Unit, onSettings: () -> Unit) {
     val switcher = remember(browser) { Switcher(browser) }
     val background = MaterialTheme.colorScheme.background
     BackHandler { if (switcher.selection != null) switcher.selection = null else hero.zoomTo(Side.Page) }
     Box(Modifier.fillMaxSize().drawBehind { backdrop(background, hero) }.pointerInput(Unit) {}) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             switcher.selection?.let { SelectBar(it.size, onDone = { switcher.selection = null }, onClose = switcher::closeSelected) }
-            Grid(switcher, hero, Modifier.weight(1f))
+            Box(Modifier.weight(1f)) {
+                Grid(switcher, hero, Modifier.fillMaxSize())
+                notices()
+            }
             Column(Modifier.graphicsLayer { alpha = hero.dockAlpha; translationY = hero.dockShift }) {
                 Toolbar(switcher, onSettings, onDismiss = hero::hide)
                 SearchBox(switcher.query, switcher.mode.search, { switcher.query = it }, Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = 2.dp))
@@ -472,4 +497,5 @@ fun TabSwitcher(browser: Browser, hero: Hero, onSettings: () -> Unit) {
         )
     }
     if (switcher.clearing) ConfirmClearBrowsingData(browser, onDismiss = { switcher.clearing = false })
+    if (switcher.closingAll) ConfirmCloseAll(switcher)
 }

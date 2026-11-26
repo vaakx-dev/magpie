@@ -13,13 +13,10 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,12 +34,17 @@ import app.magpie.browser.browser.Browser
 import app.magpie.browser.clipboard.Content
 import app.magpie.browser.clipboard.copy
 import app.magpie.browser.theme.Choices
+import app.magpie.browser.theme.Confirmation
 import app.magpie.browser.theme.Entry
 import app.magpie.browser.theme.Field
+import app.magpie.browser.theme.GUTTER
+import app.magpie.browser.theme.IconAction
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.SecretField
 import app.magpie.browser.theme.Section
 import app.magpie.browser.theme.Sheet
+import app.magpie.browser.theme.SolidButton
+import app.magpie.browser.theme.TextAction
 import app.magpie.browser.theme.Title
 import kotlinx.coroutines.launch
 
@@ -63,9 +65,7 @@ private fun Problem(error: String) {
 
 @Composable
 private fun Action(label: String, enabled: Boolean, onClick: () -> Unit) {
-    Button(enabled = enabled, onClick = onClick, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-        Text(label)
-    }
+    SolidButton(label, onClick, Modifier.fillMaxWidth().padding(horizontal = GUTTER, vertical = 8.dp), enabled)
 }
 
 @Composable
@@ -113,8 +113,8 @@ private fun TwoStep(
     Problem(status.error)
     Action("Verify", enabled = !busy && code.text.isNotBlank()) { onAnswer(method, code.text.trim().toString()) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton(enabled = !busy, onClick = onCancel) { Text("Cancel") }
-        if (method == Method.Email) TextButton(enabled = !busy, onClick = onSendEmail) { Text("Send email code") }
+        TextAction("Cancel", onCancel, enabled = !busy)
+        if (method == Method.Email) TextAction("Send email code", onSendEmail, enabled = !busy)
     }
 }
 
@@ -130,19 +130,17 @@ private fun Unlock(
     SecretField(password, "Master password")
     Problem(status.error)
     Action("Unlock", enabled = !busy && password.text.isNotEmpty()) { onUnlock(password.text.toString()) }
-    TextButton(enabled = !busy, onClick = onSignOut, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Sign out") }
+    TextAction("Sign out", onSignOut, Modifier.padding(horizontal = 12.dp), enabled = !busy)
 }
 
 @Composable
 private fun LoginEntry(login: Login, onCopy: (String, String) -> Unit, onCopyCode: () -> Unit) {
     Entry(null, login.name, detail = login.username, onClick = { onCopy("Password", login.password) }) {
         if (login.username.isNotEmpty()) {
-            IconButton(onClick = { onCopy("Username", login.username) }) { Icon(Icons.Outlined.Person, "Copy username") }
+            IconAction(Icons.Outlined.Person, "Copy username", onClick = { onCopy("Username", login.username) })
         }
-        IconButton(onClick = { onCopy("Password", login.password) }) { Icon(Icons.Outlined.Key, "Copy password") }
-        if (login.totp.isNotEmpty()) {
-            IconButton(onClick = onCopyCode) { Icon(Icons.Outlined.Timer, "Copy verification code") }
-        }
+        IconAction(Icons.Outlined.Key, "Copy password", onClick = { onCopy("Password", login.password) })
+        if (login.totp.isNotEmpty()) IconAction(Icons.Outlined.Timer, "Copy verification code", onCopyCode)
     }
 }
 
@@ -165,9 +163,9 @@ private fun Logins(browser: Browser, status: Status, onLock: () -> Unit, onSignO
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(status.email, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = { scope.launch { generated = vault.generatePassword() } }) { Text("Generate") }
-        TextButton(onClick = onLock) { Text("Lock") }
-        TextButton(onClick = onSignOut) { Text("Sign out") }
+        TextAction("Generate", onClick = { scope.launch { generated = vault.generatePassword() } })
+        TextAction("Lock", onLock)
+        TextAction("Sign out", onSignOut)
     }
     if (generated.isNotEmpty()) {
         Entry(Icons.Outlined.Key, generated, detail = "Generated password", onClick = { copySecret("Password", generated) }) {
@@ -191,6 +189,7 @@ fun PasswordSheet(browser: Browser, onDismiss: () -> Unit) {
     var status by remember { mutableStateOf<Status?>(null) }
     var busy by remember { mutableStateOf(false) }
     var emailSent by remember { mutableStateOf(false) }
+    var signingOut by remember { mutableStateOf(false) }
     fun run(call: suspend () -> Status) {
         scope.launch {
             busy = true
@@ -219,9 +218,20 @@ fun PasswordSheet(browser: Browser, onDismiss: () -> Unit) {
                 current,
                 busy,
                 onUnlock = { password -> run { vault.unlock(password) } },
-                onSignOut = { run { vault.signOut() } },
+                onSignOut = { signingOut = true },
             )
-            Lock.Unlocked -> Logins(browser, current, onLock = { run { vault.lock() } }, onSignOut = { run { vault.signOut() } })
+            Lock.Unlocked -> Logins(browser, current, onLock = { run { vault.lock() } }, onSignOut = { signingOut = true })
         }
     }
+    if (!signingOut) return
+    Confirmation(
+        "Sign out of Bitwarden?",
+        "Magpie forgets your vault on this device. You'll need your master password to sign in again.",
+        "Sign out",
+        onConfirm = {
+            signingOut = false
+            run { vault.signOut() }
+        },
+        onDismiss = { signingOut = false },
+    )
 }

@@ -3,8 +3,12 @@ package app.magpie.browser.prompt
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import app.magpie.browser.theme.Dialog
 import app.magpie.browser.theme.Field
+import app.magpie.browser.theme.Message
 import app.magpie.browser.theme.SecretField
+import app.magpie.browser.theme.SolidButton
+import app.magpie.browser.theme.TextAction
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.AlertPrompt
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.AuthPrompt
@@ -21,8 +25,9 @@ private fun Alert(prompt: Prompt, request: AlertPrompt, site: String) {
     Dialog(
         title = request.title ?: "$site says",
         onDismiss = prompt::dismiss,
-        confirm = { Confirm("OK", onClick = prompt::dismiss) },
-    ) { Message(request.message.orEmpty()) }
+        confirm = { SolidButton("OK", onClick = prompt::dismiss) },
+        body = request.message?.let { { Message(it) } },
+    )
 }
 
 @Composable
@@ -30,9 +35,10 @@ private fun Question(prompt: Prompt, request: ButtonPrompt, site: String) {
     Dialog(
         title = request.title ?: "$site says",
         onDismiss = prompt::dismiss,
-        confirm = { Confirm("OK") { prompt.answer(request.confirm(ButtonPrompt.Type.POSITIVE)) } },
-        cancel = { Cancel("Cancel") { prompt.answer(request.confirm(ButtonPrompt.Type.NEGATIVE)) } },
-    ) { Message(request.message.orEmpty()) }
+        confirm = { SolidButton("OK", onClick = { prompt.answer(request.confirm(ButtonPrompt.Type.POSITIVE)) }) },
+        cancel = { TextAction("Cancel", onClick = { prompt.answer(request.confirm(ButtonPrompt.Type.NEGATIVE)) }) },
+        body = request.message?.let { { Message(it) } },
+    )
 }
 
 @Composable
@@ -42,11 +48,11 @@ private fun Input(prompt: Prompt, request: TextPrompt, site: String) {
     Dialog(
         title = request.title ?: "$site says",
         onDismiss = prompt::dismiss,
-        confirm = { Confirm("OK", onClick = submit) },
-        cancel = { Cancel("Cancel", onClick = prompt::dismiss) },
+        confirm = { SolidButton("OK", onClick = submit) },
+        cancel = { TextAction("Cancel", onClick = prompt::dismiss) },
     ) {
         request.message?.let { Message(it) }
-        Field(text, "", onDone = submit)
+        Field(text, null, onDone = submit)
     }
 }
 
@@ -63,8 +69,8 @@ private fun SignIn(prompt: Prompt, request: AuthPrompt) {
     Dialog(
         title = request.title ?: "Sign in",
         onDismiss = prompt::dismiss,
-        confirm = { Confirm("Sign in", onClick = submit) },
-        cancel = { Cancel("Cancel", onClick = prompt::dismiss) },
+        confirm = { SolidButton("Sign in", onClick = submit) },
+        cancel = { TextAction("Cancel", onClick = prompt::dismiss) },
     ) {
         request.message?.let { Message(it) }
         if (!passwordOnly) Field(username, "Username")
@@ -77,8 +83,8 @@ private fun Leave(prompt: Prompt, request: BeforeUnloadPrompt) {
     Dialog(
         title = "Leave this page?",
         onDismiss = prompt::dismiss,
-        confirm = { Confirm("Leave") { prompt.answer(request.confirm(AllowOrDeny.ALLOW)) } },
-        cancel = { Cancel("Stay") { prompt.answer(request.confirm(AllowOrDeny.DENY)) } },
+        confirm = { SolidButton("Leave", onClick = { prompt.answer(request.confirm(AllowOrDeny.ALLOW)) }) },
+        cancel = { TextAction("Stay", onClick = { prompt.answer(request.confirm(AllowOrDeny.DENY)) }) },
     ) { Message("Changes you made may not be saved.") }
 }
 

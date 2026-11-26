@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
@@ -69,6 +70,7 @@ import org.mozilla.geckoview.GeckoView
 enum class Panel { Typing, Menu, Find, Site, History, Bookmarks, Downloads, Passwords, Settings }
 
 private const val WELCOME_ALPHA = 0.35f
+private val NOTICE_SPACING = 8.dp
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -101,12 +103,9 @@ fun BrowserScreen(browser: Browser) {
             if (!fullScreen) {
                 if (tab?.blank != false) Welcome()
                 Progress(tab?.progress ?: PROGRESS_DONE)
-                SwipeHint(browser, swipe, Modifier.align(Alignment.BottomCenter))
             }
         }
         if (!fullScreen) Column(Modifier.onSizeChanged { chrome = with(density) { it.height.toDp() } }) {
-            UpdateBanner(browser.updates)
-            DownloadBanner(browser.downloads)
             when {
                 panel == Panel.Find && tab != null ->
                     Box(Modifier.background(MaterialTheme.colorScheme.surface).windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
@@ -122,12 +121,12 @@ fun BrowserScreen(browser: Browser) {
         }
     }
     if (hero.shown) {
-        TabSwitcher(browser, hero) {
+        TabSwitcher(browser, hero, notices = { Notices(browser, swipe, Modifier.matchParentSize()) }) {
             hero.hide()
             panel = Panel.Settings
         }
     }
-    if (!fullScreen) UndoToast(browser, Modifier.fillMaxSize().padding(bottom = chrome))
+    if (!fullScreen && !hero.shown) Notices(browser, swipe, Modifier.fillMaxSize().padding(bottom = chrome))
     when (panel) {
         Panel.Typing -> Typing(browser, onDismiss = close)
         Panel.Site -> tab?.let { SiteSheet(browser, it, onDismiss = close) }
@@ -138,6 +137,20 @@ fun BrowserScreen(browser: Browser) {
         Panel.Menu, Panel.Find, Panel.Settings, null -> Unit
     }
     tab?.let { Asks(browser, it) }
+}
+
+@Composable
+private fun Notices(browser: Browser, swipe: Swipe, modifier: Modifier) {
+    Column(
+        modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(NOTICE_SPACING, Alignment.Bottom),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        UpdateBanner(browser.updates)
+        DownloadBanner(browser.downloads)
+        UndoToast(browser)
+        SwipeHint(browser, swipe, Modifier)
+    }
 }
 
 @Composable

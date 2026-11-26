@@ -42,7 +42,7 @@ private val KNOB_SHAPE = RoundedCornerShape(4.dp)
 fun Section(text: String) {
     Text(
         text,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = GUTTER, end = GUTTER, top = 16.dp, bottom = 4.dp),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -59,7 +59,7 @@ private fun Line(
 ) {
     val color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(horizontal = GUTTER, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {

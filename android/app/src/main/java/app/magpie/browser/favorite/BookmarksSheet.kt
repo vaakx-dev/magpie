@@ -8,8 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.magpie.browser.browser.Browser
 import app.magpie.browser.theme.Entry
+import app.magpie.browser.theme.IconAction
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Sheet
 import app.magpie.browser.theme.SiteEntry
@@ -28,9 +27,7 @@ import app.magpie.browser.theme.Title
 private fun Overflow(favorite: Favorite, favorites: Favorites) {
     var menu by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { menu = true }) {
-            Icon(Icons.Outlined.MoreVert, contentDescription = "Bookmark options")
-        }
+        IconAction(Icons.Outlined.MoreVert, "Bookmark options", onClick = { menu = true })
         FavoriteMenu(favorite, favorites, menu, onDismiss = { menu = false })
     }
 }

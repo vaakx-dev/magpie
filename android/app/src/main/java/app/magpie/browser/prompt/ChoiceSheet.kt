@@ -25,7 +25,9 @@ import app.magpie.browser.menu.Glyph
 import app.magpie.browser.menu.Heading
 import app.magpie.browser.menu.ICON_SIZE
 import app.magpie.browser.menu.Line
+import app.magpie.browser.theme.GUTTER
 import app.magpie.browser.theme.Sheet
+import app.magpie.browser.theme.SolidButton
 import app.magpie.browser.theme.Title
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.ChoicePrompt
 import org.mozilla.geckoview.GeckoSession.PromptDelegate.ChoicePrompt.Choice
@@ -66,7 +68,7 @@ fun ChoiceSheet(prompt: Prompt, request: ChoicePrompt) {
     Sheet(onDismiss = prompt::dismiss) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Title(request.title ?: request.message ?: if (multiple) "Choose options" else "Choose an option")
-            if (multiple) Box(Modifier.padding(end = 20.dp)) { Confirm("Done", onClick = done) }
+            if (multiple) SolidButton("Done", onClick = done, modifier = Modifier.padding(end = GUTTER))
         }
         LazyColumn(Modifier.weight(1f, fill = false).padding(horizontal = LIST_PADDING)) {
             items(entries) { choice -> Entry(choice, choice.id in picked) { pick(choice) } }
