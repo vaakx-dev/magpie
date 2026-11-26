@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::{cipher_string::CipherString, error::Error, key::SymmetricKey};
+use super::{cipher_string::CipherString, error::Error, item::Unread, key::SymmetricKey};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u8", into = "u8")]
@@ -22,6 +22,8 @@ pub struct SealedUri {
     pub uri: Option<CipherString>,
     #[serde(rename = "match")]
     pub rule: Option<MatchRule>,
+    #[serde(flatten)]
+    pub unread: Unread,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Zeroize, ZeroizeOnDrop)]

@@ -1,5 +1,5 @@
 mod audio;
-mod autofill;
+pub mod autofill;
 mod backdrop;
 mod context_menu;
 mod cosmetic;
@@ -52,14 +52,13 @@ use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Environment;
 use windows::{Win32::Foundation::RECT, core::Result};
 
 pub use audio::Audio;
-pub use autofill::{Fill, fillable};
 pub use backdrop::Backdrop;
 pub use cutout::Cutouts;
 pub use download::Transfer;
 pub use memory::{FrameId, Memory};
 pub use permission::Prompt as PermissionPrompt;
 pub use profile::default_downloads;
-pub use runtime::{Environment, Runtime, Setup};
+pub use runtime::{Environment, Runtime, Setup, window_handle};
 pub use snapshot::{HEIGHT_PX as SNAPSHOT_HEIGHT_PX, WIDTH_PX as SNAPSHOT_WIDTH_PX};
 
 use crate::{
@@ -73,6 +72,7 @@ use crate::{
     },
     zoom::{Step, Zoom},
 };
+use autofill::{Fill, Login, Submission};
 use darkmode::DarkMode;
 use download::Prompt;
 use filter::Filter;
@@ -122,6 +122,7 @@ pub enum Event {
     Fullscreen(bool),
     Internal(internal::Message),
     ReaderStyle(ReaderStyle),
+    Submitted(Submission),
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -161,6 +162,7 @@ pub struct WebView {
     preloading: Preloading,
     prompts: Vec<PermissionPrompt>,
     asked: BTreeSet<Kind>,
+    login: Login,
     tasks: Vec<Task<()>>,
 }
 
@@ -214,6 +216,7 @@ fn wire(
     cosmetic::wire(&native.webview, Arc::clone(runtime.shield()))?;
     sponsorblock::wire(&native.webview, signals.clone())?;
     reader::wire(&native.webview, signals.clone())?;
+    autofill::wire(&native.webview, signals.clone())?;
     youtube::wire(&native.webview, Rc::clone(runtime))?;
     filter::wire(
         &native.webview,
@@ -328,6 +331,7 @@ impl WebView {
             preloading: Preloading::default(),
             prompts: Vec::new(),
             asked: BTreeSet::new(),
+            login: Login::default(),
             tasks: vec![creation],
         }
     }
@@ -514,9 +518,26 @@ impl WebView {
         }
     }
 
-    pub fn autofill(&self, fill: &Fill) {
+    pub fn login_field(&self) -> Option<autofill::Field> {
+        self.login.field(self.zoom().factor() as f32)
+    }
+
+    pub fn login_form(&self) -> bool {
+        self.login.form()
+    }
+
+    pub fn forget_login_field(&mut self, cx: &mut Context<Self>) {
+        if self.login.focused() {
+            self.login.see(autofill::Sighting::Left);
+            cx.notify();
+        }
+    }
+
+    pub fn autofill(&mut self, fill: &Fill, cx: &mut Context<Self>) {
         if let (Some(native), Some(page)) = (&self.native, &self.url) {
             autofill::fill(&native.webview, page, fill);
+            self.login.filled();
+            cx.notify();
         }
     }
 
@@ -696,6 +717,7 @@ impl WebView {
             Signal::Started => {
                 self.loading = true;
                 self.track = None;
+                self.login = Login::default();
             }
             Signal::Source(url) => {
                 self.leave_origin(&url, cx);
@@ -730,6 +752,8 @@ impl WebView {
             Signal::Fullscreen(contains) => cx.emit(Event::Fullscreen(contains)),
             Signal::Internal(message) => cx.emit(Event::Internal(message)),
             Signal::Permission(prompt) => self.ask(prompt),
+            Signal::Login(sighting) => self.login.see(sighting),
+            Signal::Submitted(submission) => cx.emit(Event::Submitted(submission)),
         }
         cx.notify();
     }

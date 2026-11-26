@@ -5,10 +5,12 @@ use std::{
     thread,
 };
 
+use std::time::{Duration, UNIX_EPOCH};
+
 use magpie_engine::bitwarden::{
     CipherId, CipherString, Credentials, Error, Kdf, LoginUri, MatchRule, Method, NewLogin, Page,
     Proof, Sealed, SealedLogin, SealedUri, Server, SignIn, Snapshot, Status, SymmetricKey, Totp,
-    Vault, password,
+    Vault, date, password,
 };
 use serde_json::json;
 use zeroize::Zeroizing;
@@ -55,10 +57,13 @@ fn sealed_login(id: &str, name: &str, uris: &[(&str, Option<MatchRule>)]) -> Sea
                     .map(|(uri, rule)| SealedUri {
                         uri: Some(seal(uri, &key)),
                         rule: *rule,
+                        unread: Default::default(),
                     })
                     .collect(),
             ),
+            unread: Default::default(),
         },
+        unread: Default::default(),
     }
 }
 
@@ -536,6 +541,7 @@ fn reply(request: &Request) -> (u16, String) {
         ),
         "/api/sync?excludeDomains=true" if request.head.contains("Bearer access-1") => (200, sync_body()),
         "/api/ciphers" if request.head.contains("Bearer access-1") => (200, created(&request.body)),
+        "/api/ciphers/mail" if request.head.starts_with("PUT") => (200, request.body.clone()),
         _ => (404, "{}".to_owned()),
     }
 }
@@ -694,4 +700,77 @@ fn background_pull_refreshes_the_token_once_and_absorbs_the_server_logins() {
     );
     vault.lock();
     assert!(matches!(vault.pull(), Err(Error::Locked)));
+}
+
+#[test]
+fn timestamps_are_utc_iso_8601() {
+    let at = |secs| date::timestamp(UNIX_EPOCH + Duration::from_secs(secs));
+    assert_eq!(at(0), "1970-01-01T00:00:00Z");
+    assert_eq!(at(1_700_000_000), "2023-11-14T22:13:20Z");
+    assert_eq!(at(1_709_164_800), "2024-02-29T00:00:00Z");
+}
+
+#[test]
+fn exported_key_unlocks_a_locked_vault_and_a_wrong_key_is_refused() {
+    let (folder, vault) =
+        unlocked_vault(vec![sealed_login("mail", "Mail", &[("example.com", None)])]);
+    let exported = vault.key().unwrap().bytes();
+    drop(vault);
+
+    let mut reopened = Vault::open(folder.path()).unwrap();
+    assert!(matches!(reopened.key(), Err(Error::Locked)));
+    let wrong = SymmetricKey::from_bytes(&[7; 64]).unwrap();
+    assert!(matches!(
+        reopened.unlock_with_key(wrong),
+        Err(Error::Tampered)
+    ));
+    assert_eq!(reopened.status(), Status::Locked);
+
+    reopened
+        .unlock_with_key(SymmetricKey::from_bytes(&exported).unwrap())
+        .unwrap();
+    assert_eq!(names(reopened.logins().iter().collect()), ["Mail"]);
+}
+
+#[test]
+fn change_password_puts_the_whole_item_back_and_remembers_the_old_password() {
+    let (address, requests) = serve();
+    let mut login = sealed_login("mail", "Mail", &[("example.com", None)]);
+    login
+        .unread
+        .insert("folderId".to_owned(), json!("folder-1"));
+    login
+        .unread
+        .insert("revisionDate".to_owned(), json!("2026-01-01T00:00:00Z"));
+    let old_password = login.login.password.clone().unwrap();
+    let (folder, mut vault) = vault_on(&address, vec![login]);
+
+    vault
+        .change_password(&CipherId("mail".to_owned()), "fresh-secret")
+        .unwrap();
+
+    assert_eq!(vault.logins()[0].password.as_deref(), Some("fresh-secret"));
+    let [body] = &posted(&requests, "PUT /api/ciphers/mail")[..] else {
+        panic!("expected one cipher update");
+    };
+    assert!(
+        !body.contains("fresh-secret"),
+        "password sent in plain text"
+    );
+    let edit: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(edit["type"], 1);
+    assert_eq!(edit["folderId"], "folder-1");
+    assert_eq!(edit["lastKnownRevisionDate"], "2026-01-01T00:00:00Z");
+    assert_eq!(
+        edit["passwordHistory"][0]["password"],
+        old_password.to_string()
+    );
+    assert!(edit["login"]["passwordRevisionDate"].is_string());
+
+    let mut reopened = Vault::open(folder.path()).unwrap();
+    reopened.unlock(PASSWORD).unwrap();
+    assert_eq!(
+        reopened.logins()[0].password.as_deref(),
+        Some("fresh-secret")
+    );
 }

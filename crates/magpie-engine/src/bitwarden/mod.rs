@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod cipher_string;
 pub mod client;
+pub mod date;
 pub mod device;
 pub mod error;
 pub mod item;

@@ -34,6 +34,10 @@ pub struct Shared {
 
 impl Global for Shared {}
 
+pub fn keyring(cx: &App) -> Entity<Keyring> {
+    cx.global::<Shared>().keyring.clone()
+}
+
 fn options(cx: &App) -> WindowOptions {
     let centered = Bounds::centered(None, size(px(WINDOW_WIDTH_PX), px(WINDOW_HEIGHT_PX)), cx);
     let cascade = px(CASCADE_PX) * cx.windows().len() as f32;

@@ -9,7 +9,7 @@ use super::{
     auth::{self, CLIENT_ID, DEVICE_TYPE, Grant},
     device::DeviceId,
     error::Error,
-    item::{Draft, Sealed},
+    item::{CipherId, Draft, Sealed},
     kdf::Kdf,
     server::Server,
     sync,
@@ -138,6 +138,19 @@ impl Client {
         let address = format!("{}/ciphers", server.api());
         let request = authorized(self.post(&address), access_token);
         let body = send_json(request, draft)?.success()?;
+        Ok(serde_json::from_str(&body)?)
+    }
+
+    pub fn update(
+        &self,
+        server: &Server,
+        access_token: &str,
+        id: &CipherId,
+        edit: &serde_json::Value,
+    ) -> Result<Sealed, Error> {
+        let address = format!("{}/ciphers/{}", server.api(), id.0);
+        let request = authorized(identified(self.agent.put(&address)), access_token);
+        let body = send_json(request, edit)?.success()?;
         Ok(serde_json::from_str(&body)?)
     }
 }

@@ -1,5 +1,6 @@
 package app.magpie.browser.browser
 
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -120,10 +121,12 @@ fun BrowserScreen(browser: Browser) {
     }
 }
 
+private fun autofillable(view: GeckoView): GeckoView = view.apply { importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES }
+
 @Composable
 private fun Page(tab: Tab, onView: (GeckoView?) -> Unit) {
     AndroidView(
-        factory = { context -> GeckoView(context).also(onView) },
+        factory = { context -> autofillable(GeckoView(context)).also(onView) },
         update = { view ->
             if (view.session != tab.session) {
                 view.releaseSession()

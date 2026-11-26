@@ -1,12 +1,16 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value, json};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::{
     cipher_string::CipherString,
     error::Error,
     key::SymmetricKey,
+    totp::Totp,
     uri::{LoginUri, Page, SealedUri},
 };
+
+pub type Unread = Map<String, Value>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Zeroize)]
 #[serde(transparent)]
@@ -22,6 +26,8 @@ pub struct Sealed {
     #[serde(default)]
     pub favorite: bool,
     pub login: SealedLogin,
+    #[serde(flatten)]
+    pub unread: Unread,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,6 +37,8 @@ pub struct SealedLogin {
     pub password: Option<CipherString>,
     pub totp: Option<CipherString>,
     pub uris: Option<Vec<SealedUri>>,
+    #[serde(flatten)]
+    pub unread: Unread,
 }
 
 pub struct NewLogin<'a> {
@@ -63,6 +71,7 @@ pub struct Login {
 }
 
 const LOGIN_TYPE: u8 = 1;
+const PASSWORD_HISTORY_LIMIT: usize = 5;
 
 fn sealed_text(text: &str, key: &SymmetricKey) -> Result<Option<CipherString>, Error> {
     (!text.is_empty())
@@ -83,6 +92,7 @@ impl NewLogin<'_> {
             vec![SealedUri {
                 uri: Some(uri),
                 rule: None,
+                unread: Unread::new(),
             }]
         });
         Ok(Draft {
@@ -95,9 +105,21 @@ impl NewLogin<'_> {
                 password: sealed_text(self.password, key)?,
                 totp: None,
                 uris,
+                unread: Unread::new(),
             },
         })
     }
+}
+
+fn remembered(old: Option<&CipherString>, history: Option<&Value>, now: &str) -> Value {
+    let earlier = history.and_then(Value::as_array).into_iter().flatten();
+    let entry = old.map(|password| json!({ "password": password, "lastUsedDate": now }));
+    let entries: Vec<Value> = entry
+        .into_iter()
+        .chain(earlier.cloned())
+        .take(PASSWORD_HISTORY_LIMIT)
+        .collect();
+    Value::Array(entries)
 }
 
 impl Sealed {
@@ -106,6 +128,33 @@ impl Sealed {
             .as_ref()
             .map(|key| SymmetricKey::from_bytes(&key.decrypt(user_key)?))
             .transpose()
+    }
+
+    pub fn with_password(
+        &self,
+        password: &str,
+        user_key: &SymmetricKey,
+        now: &str,
+    ) -> Result<Value, Error> {
+        let item_key = self.item_key(user_key)?;
+        let key = item_key.as_ref().unwrap_or(user_key);
+        let mut changed = self.clone();
+        let history = remembered(
+            self.login.password.as_ref(),
+            self.unread.get("passwordHistory"),
+            now,
+        );
+        changed.login.password = Some(CipherString::encrypt(password.as_bytes(), key)?);
+        changed
+            .login
+            .unread
+            .insert("passwordRevisionDate".to_owned(), json!(now));
+        changed.unread.insert("passwordHistory".to_owned(), history);
+        let mut edit = serde_json::to_value(&changed)?;
+        edit["type"] = json!(LOGIN_TYPE);
+        edit["lastKnownRevisionDate"] =
+            self.unread.get("revisionDate").cloned().unwrap_or_default();
+        Ok(edit)
     }
 
     pub fn open(&self, user_key: &SymmetricKey) -> Result<Login, Error> {
@@ -128,6 +177,10 @@ impl Sealed {
 }
 
 impl Login {
+    pub fn authenticator(&self) -> Option<Totp> {
+        Totp::parse(self.totp.as_deref()?).ok()
+    }
+
     pub fn matches(&self, page: &Page) -> bool {
         self.uris.iter().any(|uri| uri.matches(page))
     }

@@ -51,7 +51,7 @@ private fun summary(category: Category, browser: Browser): String {
         Category.Appearance -> "${settings.theme.label} theme · Menu on the ${settings.menuSide.label.lowercase()}"
         Category.Search -> settings.searchEngine.label
         Category.Privacy -> "Ad blocker ${on(settings.privacy.adBlock)} · Tracking protection ${on(settings.privacy.trackingProtection)}"
-        Category.Passwords -> "Bitwarden"
+        Category.Passwords -> settings.passwordService.label
         Category.Addons -> "Distraction Blocker · Background play ${on(settings.backgroundPlay)}"
         Category.About -> "Version ${browser.updates.version} · Updates"
     }

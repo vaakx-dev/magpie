@@ -124,7 +124,7 @@ fn register_container_class() {
     });
 }
 
-fn parent(window: &Window) -> Result<HWND> {
+pub fn window_handle(window: &Window) -> Result<HWND> {
     let handle = HasWindowHandle::window_handle(window).map_err(|_| Error::from(E_POINTER))?;
     match handle.as_raw() {
         RawWindowHandle::Win32(handle) => Ok(HWND(handle.hwnd.get() as _)),
@@ -249,7 +249,7 @@ async fn native(
 impl Runtime {
     pub fn new(window: &Window, setup: Setup, settings: &Settings) -> Result<Rc<Self>> {
         let runtime = Self {
-            parent: parent(window)?,
+            parent: window_handle(window)?,
             window: window.window_handle(),
             profiles: RefCell::default(),
             environment: setup.environment,

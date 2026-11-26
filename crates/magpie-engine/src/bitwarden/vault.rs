@@ -1,7 +1,7 @@
 use std::{
     mem,
     path::{Path, PathBuf},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 use zeroize::Zeroizing;
@@ -10,9 +10,10 @@ use super::{
     auth::{self, Grant, Method, PasswordGrant, Proof, Tokens},
     cipher_string::CipherString,
     client::{Client, EmailCode},
+    date,
     device::DeviceId,
     error::Error,
-    item::{Login, NewLogin, Sealed},
+    item::{CipherId, Login, NewLogin, Sealed},
     kdf::Kdf,
     key::{MasterKey, SymmetricKey},
     server::Server,
@@ -226,6 +227,28 @@ impl Session {
         self.snapshot.logins.push(sealed);
         self.snapshot.save(folder)
     }
+
+    fn change_password(
+        &mut self,
+        client: &Client,
+        folder: &Path,
+        id: &CipherId,
+        password: &str,
+    ) -> Result<(), Error> {
+        let index = self
+            .snapshot
+            .logins
+            .iter()
+            .position(|sealed| &sealed.id == id)
+            .ok_or(Error::Malformed("unknown login"))?;
+        let now = date::timestamp(SystemTime::now());
+        let edit = self.snapshot.logins[index].with_password(password, &self.key, &now)?;
+        let token = self.access_token(client, folder)?;
+        let sealed = client.update(&self.snapshot.server, &token, id, &edit)?;
+        self.logins[index] = sealed.open(&self.key)?;
+        self.snapshot.logins[index] = sealed;
+        self.snapshot.save(folder)
+    }
 }
 
 impl State {
@@ -353,13 +376,16 @@ impl Vault {
         })
     }
 
-    pub fn unlock(&mut self, password: &str) -> Result<(), Error> {
+    fn unlock_with(
+        &mut self,
+        key_for: impl FnOnce(&Snapshot) -> Result<SymmetricKey, Error>,
+    ) -> Result<(), Error> {
         let snapshot = match &self.state {
             State::Locked(snapshot) => snapshot,
             State::Unlocked(_) => return Ok(()),
             State::SignedOut => return Err(Error::SignedOut),
         };
-        let key = user_key(snapshot, password)?;
+        let key = key_for(snapshot)?;
         let logins = open_all(&snapshot.logins, &key)?;
         if let State::Locked(snapshot) = mem::replace(&mut self.state, State::SignedOut) {
             self.state = State::Unlocked(Session {
@@ -370,6 +396,21 @@ impl Vault {
             });
         }
         Ok(())
+    }
+
+    pub fn unlock(&mut self, password: &str) -> Result<(), Error> {
+        self.unlock_with(|snapshot| user_key(snapshot, password))
+    }
+
+    pub fn unlock_with_key(&mut self, key: SymmetricKey) -> Result<(), Error> {
+        self.unlock_with(|snapshot| {
+            snapshot.refresh_token.decrypt(&key)?;
+            Ok(key)
+        })
+    }
+
+    pub fn key(&self) -> Result<&SymmetricKey, Error> {
+        Ok(&self.state.session()?.key)
     }
 
     pub fn pull(&self) -> Result<Pull, Error> {
@@ -396,6 +437,12 @@ impl Vault {
             .create(&self.client, &self.folder, login)
     }
 
+    pub fn change_password(&mut self, id: &CipherId, password: &str) -> Result<(), Error> {
+        self.state
+            .session_mut()?
+            .change_password(&self.client, &self.folder, id, password)
+    }
+
     pub fn lock(&mut self) {
         self.state = match mem::replace(&mut self.state, State::SignedOut) {
             State::Unlocked(session) => State::Locked(session.snapshot),
@@ -413,6 +460,10 @@ impl Vault {
             State::Unlocked(session) => &session.logins,
             State::Locked(_) | State::SignedOut => &[],
         }
+    }
+
+    pub fn login(&self, id: &CipherId) -> Option<&Login> {
+        self.logins().iter().find(|login| &login.id == id)
     }
 
     pub fn search(&self, query: &str) -> Vec<&Login> {

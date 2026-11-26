@@ -31,13 +31,16 @@ const UPDATE_TONES = { up_to_date: "success", available: "success", failed: "err
 const INSTALLABLE_UPDATES = ["available", "download_failed"]
 const BUSY_UPDATES = ["checking", "downloading", "installing"]
 
-const VAULT_VIEWS = {
-  working: { title: "Working", open: "OpenBitwarden", lockable: false },
-  unavailable: { title: "Unavailable", open: null, lockable: false },
-  signed_out: { title: "SignedOut", open: "SignIn", lockable: false },
-  locked: { title: "VaultLocked", open: "Unlock", lockable: false },
-  unlocked: { title: "Unlocked", open: "OpenBitwarden", lockable: true },
+const VAULT_TITLES = {
+  working: "Working",
+  unavailable: "Unavailable",
+  signed_out: "SignInToBitwarden",
+  challenged: "TwoStepLogin",
+  locked: "VaultLocked",
+  unlocked: "Unlocked",
 }
+const SIGNED_IN = ["locked", "unlocked"]
+const EMAILED_METHODS = ["email", "new_device"]
 
 const SHORTCUTS = [
   { action: "Command Bar", detail: "Open, search and run commands", keys: [["Ctrl", "T"]] },
@@ -488,17 +491,128 @@ function renderAbout() {
   renderUpdates()
 }
 
-function renderPasswords({ status, email, reason }) {
-  const view = VAULT_VIEWS[status]
+function vault(action) {
+  post({ type: "passwords", action })
+}
+
+function vaultDetail(passwords) {
+  if (passwords.status === "signed_out") return state.text.BitwardenHint
+  return passwords.email ?? passwords.reason ?? ""
+}
+
+function chosenMethod() {
+  return byId("vault-methods").querySelector("input:checked")?.value
+}
+
+function renderMethods({ methods, email_sent }) {
+  const methodsElement = byId("vault-methods")
+  const signature = JSON.stringify(methods)
+  if (methodsElement.dataset.signature !== signature) {
+    methodsElement.dataset.signature = signature
+    methodsElement.replaceChildren(...segmented("vault-method", methods).children)
+    methodsElement.querySelector("input").checked = true
+  }
+  methodsElement.hidden = methods.length < 2
+  const emailCode = byId("vault-email-code")
+  emailCode.hidden = !EMAILED_METHODS.includes(chosenMethod())
+  say(emailCode, email_sent ? "EmailCodeSent" : "SendEmailCode")
+}
+
+function renderHello({ available, on }, status) {
+  byId("vault-hello-unlock").hidden = !(status === "locked" && available && on)
+  byId("vault-hello").hidden = !(status === "unlocked" && available)
+  byId("vault-hello-switch").checked = on
+}
+
+function placeholders() {
+  byId("vault-email").placeholder = state.text.Email
+  byId("vault-password").placeholder = state.text.MasterPassword
+  byId("vault-unlock-password").placeholder = state.text.MasterPassword
+  byId("vault-code").placeholder = state.text.VerificationCode
+  byId("vault-search").placeholder = state.text.SearchVault
+}
+
+function renderPasswords(passwords) {
+  const { status } = passwords
+  say(byId("vault-status"), VAULT_TITLES[status])
   const detail = byId("vault-detail")
-  const open = byId("vault-open")
-  say(byId("vault-status"), view.title)
-  detail.textContent = email ?? reason ?? ""
+  detail.textContent = vaultDetail(passwords)
   detail.hidden = !detail.textContent
   detail.classList.toggle("error", status === "unavailable")
-  open.hidden = !view.open
-  if (view.open) say(open, view.open)
-  byId("vault-lock").hidden = !view.lockable
+  const problem = byId("vault-problem")
+  problem.textContent = passwords.problem ?? ""
+  problem.hidden = !problem.textContent
+  byId("vault-sign-in").hidden = status !== "signed_out"
+  byId("vault-challenge").hidden = status !== "challenged"
+  byId("vault-unlock").hidden = status !== "locked"
+  byId("vault-browse").hidden = status !== "unlocked"
+  byId("vault-sync").hidden = status !== "unlocked"
+  byId("vault-lock").hidden = status !== "unlocked"
+  byId("vault-sign-out").hidden = !SIGNED_IN.includes(status)
+  byId("vault-hello").hidden = true
+  placeholders()
+  if (status === "challenged") renderMethods(passwords.challenge)
+  if (SIGNED_IN.includes(status)) renderHello(passwords.hello, status)
+  if (status !== "unlocked") return
+  say(byId("vault-count"), "SavedLogins", String(passwords.logins))
+  searchVault()
+}
+
+function searchVault() {
+  vault({ kind: "search", query: byId("vault-search").value })
+}
+
+function copyButton(login, part, variant) {
+  return button({ variant, onclick: () => vault({ kind: "copy", id: login.id, part }) })
+}
+
+function vaultRows(logins) {
+  if (logins.length === 0) return [row({ title: phrase("NoMatchingLogins", "title"), className: "row empty" })]
+  return logins.map((login) => {
+    const copies = [
+      login.username && copyButton(login, "username", "Username"),
+      login.password && copyButton(login, "password", "Password"),
+      login.code && copyButton(login, "code", "Code"),
+    ].filter(Boolean)
+    const detail = [login.username, login.site].filter(Boolean).join(" · ")
+    return row({
+      title: plain(login.name, "title"),
+      description: plain(detail, "description"),
+      controls: [node("div", { className: "actions" }, copies)],
+    })
+  })
+}
+
+function signIn(event) {
+  event.preventDefault()
+  const host = document.querySelector("input[name=vault-host]:checked").value
+  const password = byId("vault-password")
+  vault({ kind: "sign_in", host, address: byId("vault-address").value, email: byId("vault-email").value, password: password.value })
+  password.value = ""
+}
+
+function answerChallenge(event) {
+  event.preventDefault()
+  const code = byId("vault-code")
+  vault({ kind: "answer_challenge", method: chosenMethod(), code: code.value })
+  code.value = ""
+}
+
+function unlockVault(event) {
+  event.preventDefault()
+  const password = byId("vault-unlock-password")
+  vault({ kind: "unlock", password: password.value })
+  password.value = ""
+}
+
+function chooseHost() {
+  const host = document.querySelector("input[name=vault-host]:checked").value
+  byId("vault-address").hidden = host !== "custom"
+}
+
+function setHello(event) {
+  vault({ kind: "set_hello", on: event.target.checked })
+  event.target.checked = !event.target.checked
 }
 
 function keyCombo(keys) {
@@ -550,6 +664,8 @@ function received({ data }) {
       return setClearing(data.error === null ? { phase: "cleared" } : { phase: "failed", error: data.error })
     case "imported":
       return finishImport(data)
+    case "logins":
+      return renderList(byId("vault-logins"), data.logins, vaultRows)
   }
 }
 
@@ -688,8 +804,19 @@ function listen() {
   byId("open-data-folder").addEventListener("click", () => post({ type: "open_data_folder" }))
   byId("update-check").addEventListener("click", () => post({ type: "check_for_updates" }))
   byId("update-install").addEventListener("click", () => post({ type: "install_update" }))
-  byId("vault-open").addEventListener("click", () => post({ type: "open_passwords" }))
-  byId("vault-lock").addEventListener("click", () => post({ type: "lock_passwords" }))
+  byId("vault-sign-in").addEventListener("submit", signIn)
+  byId("vault-sign-in").addEventListener("change", chooseHost)
+  byId("vault-challenge").addEventListener("submit", answerChallenge)
+  byId("vault-methods").addEventListener("change", () => renderMethods(state.passwords.challenge))
+  byId("vault-email-code").addEventListener("click", () => vault({ kind: "send_email_code" }))
+  byId("vault-cancel").addEventListener("click", () => vault({ kind: "cancel_sign_in" }))
+  byId("vault-unlock").addEventListener("submit", unlockVault)
+  byId("vault-hello-unlock").addEventListener("click", () => vault({ kind: "unlock_with_hello" }))
+  byId("vault-hello-switch").addEventListener("change", setHello)
+  byId("vault-sync").addEventListener("click", () => vault({ kind: "sync" }))
+  byId("vault-lock").addEventListener("click", () => vault({ kind: "lock" }))
+  byId("vault-sign-out").addEventListener("click", () => vault({ kind: "sign_out" }))
+  byId("vault-search").addEventListener("input", searchVault)
   chrome.webview.addEventListener("message", received)
 }
 

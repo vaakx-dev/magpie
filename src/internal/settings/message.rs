@@ -1,6 +1,9 @@
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
+use zeroize::Zeroizing;
+
+use magpie_engine::bitwarden::CipherId;
 
 use crate::{
     import::Scope,
@@ -16,6 +19,59 @@ pub struct Import {
     pub profile: PathBuf,
     bookmarks: bool,
     history: bool,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct Secret(pub Zeroizing<String>);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Host {
+    UnitedStates,
+    Europe,
+    Custom,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Part {
+    Username,
+    Password,
+    Code,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PasswordAction {
+    SignIn {
+        host: Host,
+        address: String,
+        email: String,
+        password: Secret,
+    },
+    AnswerChallenge {
+        method: String,
+        code: Secret,
+    },
+    SendEmailCode,
+    CancelSignIn,
+    Unlock {
+        password: Secret,
+    },
+    UnlockWithHello,
+    Lock,
+    Sync,
+    SignOut,
+    SetHello {
+        on: bool,
+    },
+    Search {
+        query: String,
+    },
+    Copy {
+        id: CipherId,
+        part: Part,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -53,8 +109,9 @@ pub enum Message {
     CheckForUpdates,
     InstallUpdate,
     RunImport(Import),
-    OpenPasswords,
-    LockPasswords,
+    Passwords {
+        action: PasswordAction,
+    },
     CreateProfile {
         name: String,
     },
@@ -69,6 +126,18 @@ pub enum Message {
         space: SpaceId,
         profile: ProfileId,
     },
+}
+
+impl fmt::Debug for Secret {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("Secret")
+    }
+}
+
+impl<'de> Deserialize<'de> for Secret {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(|text| Self(Zeroizing::new(text)))
+    }
 }
 
 impl Import {

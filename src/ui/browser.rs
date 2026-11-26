@@ -22,7 +22,7 @@ use super::{
     fullscreen::Fullscreen,
     menu::Layer,
     mini_player::Player,
-    password::{Done, Look, Options as PanelOptions, Panel},
+    password::{AfterUnlock, Look, Offer, Options as SheetOptions, Outcome as SheetOutcome, Sheet},
     peek::Peek,
     resize::Handle,
     session::Pane,
@@ -39,7 +39,7 @@ use super::{
 use crate::{
     address::destination,
     config::{Config, Layout, Scheme, Settings, Side, Sidebar, Startup, Switch},
-    internal::{PAGES, Page},
+    internal::{PAGES, Page, settings::Section as SettingsSection},
     locale::{Locale, Text},
     reader,
     storage::{
@@ -65,8 +65,8 @@ pub enum Reveal {
 }
 
 pub struct Passwords {
-    panel: Entity<Panel>,
-    _done: Subscription,
+    sheet: Entity<Sheet>,
+    _outcome: Subscription,
 }
 
 pub enum Popover {
@@ -89,6 +89,8 @@ pub struct Browser {
     system_scheme: Scheme,
     pub(super) reveal: Option<Reveal>,
     pub(super) popover: Option<Popover>,
+    pub(super) offer: Option<Offer>,
+    pub(super) after_unlock: Option<AfterUnlock>,
     pub(super) peek: Peek,
     pub(super) thumbnails: Thumbnails,
     palette: Option<Palette>,
@@ -169,6 +171,8 @@ impl Browser {
             system_scheme: system_theme::scheme(),
             reveal: None,
             popover: None,
+            offer: None,
+            after_unlock: None,
             peek: Peek::default(),
             thumbnails,
             palette: None,
@@ -248,6 +252,13 @@ impl Browser {
 
     pub(super) fn colors(&self) -> &'static Colors {
         colors(self.scheme())
+    }
+
+    pub(super) fn look(&self) -> Look {
+        Look {
+            colors: self.colors(),
+            locale: self.locale(),
+        }
     }
 
     pub(super) fn backdrop(&self) -> Backdrop {
@@ -519,20 +530,38 @@ impl Browser {
     }
 
     pub(super) fn show_passwords(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let options = PanelOptions {
-            keyring: cx.global::<window::Shared>().keyring.clone(),
+        let options = SheetOptions {
+            keyring: window::keyring(cx),
             page: self.active_view().cloned(),
-            look: Look {
-                colors: self.colors(),
-                locale: self.locale(),
-            },
+            look: self.look(),
         };
-        let panel = cx.new(|cx| Panel::new(options, window, cx));
-        let done = cx.subscribe_in(&panel, window, |browser, _, _: &Done, window, cx| {
-            browser.dismiss_popover(window, cx)
-        });
-        self.popover = Some(Popover::Passwords(Passwords { panel, _done: done }));
+        let sheet = cx.new(|cx| Sheet::new(options, window, cx));
+        let outcome = cx.subscribe_in(
+            &sheet,
+            window,
+            |browser, _, outcome: &SheetOutcome, window, cx| {
+                browser.dismiss_popover(window, cx);
+                if let SheetOutcome::Manage = outcome {
+                    browser.show_settings(SettingsSection::Passwords, cx);
+                }
+            },
+        );
+        self.popover = Some(Popover::Passwords(Passwords {
+            sheet,
+            _outcome: outcome,
+        }));
         cx.notify();
+    }
+
+    pub(super) fn toggle_passwords(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.popover {
+            Some(Popover::Passwords(_)) => self.dismiss_popover(window, cx),
+            _ => self.show_passwords(window, cx),
+        }
+    }
+
+    pub(super) fn passwords_shown(&self) -> bool {
+        matches!(self.popover, Some(Popover::Passwords(_)))
     }
 
     pub(super) fn dismiss_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -549,6 +578,11 @@ impl Browser {
         for pane in panes.into_iter().flatten() {
             pane.view.read(cx).blur();
         }
+    }
+
+    fn close_login_dropdown(&mut self, _: &MouseDownEvent, _: &mut Window, cx: &mut Context<Self>) {
+        self.after_unlock = None;
+        self.with_view(cx, WebView::forget_login_field);
     }
 
     fn focus_unclaimed(&mut self, _: &MouseDownEvent, window: &mut Window, _: &mut Context<Self>) {
@@ -690,6 +724,8 @@ impl Browser {
                     ))
                     .children(self.find_card(&pane.view, cx))
                     .children(self.permission_card(&pane.view, cx))
+                    .children(self.login_dropdown(&pane.view, cx))
+                    .children(self.save_toast(&pane.view, cx))
                     .into_any_element()
             })
             .collect()
@@ -871,7 +907,7 @@ impl Browser {
                     .child(self.menu(layers.last().copied(), cx)),
             ),
             Popover::Passwords(passwords) => {
-                overlay.child(self.popover_anchor().child(passwords.panel.clone()))
+                overlay.child(self.popover_anchor().child(passwords.sheet.clone()))
             }
             Popover::Context(menu) => overlay
                 .on_mouse_down(
@@ -950,6 +986,7 @@ impl Render for Browser {
             .key_context("Browser")
             .capture_any_mouse_down(cx.listener(Self::release_page_focus))
             .on_any_mouse_down(cx.listener(Self::focus_unclaimed))
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::close_login_dropdown))
             .on_mouse_down(
                 MouseButton::Navigate(NavigationDirection::Back),
                 cx.listener(|browser, _, window, cx| browser.back(&Back, window, cx)),

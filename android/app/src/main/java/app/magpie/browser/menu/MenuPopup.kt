@@ -39,6 +39,7 @@ import app.magpie.browser.browser.Panel
 import app.magpie.browser.browser.Step
 import app.magpie.browser.browser.Tab
 import app.magpie.browser.browser.Zoom
+import app.magpie.browser.password.Service
 import app.magpie.browser.theme.Toggle
 
 private val ZOOM_LEVEL_WIDTH = 48.dp
@@ -112,7 +113,7 @@ private fun RootLayer(menu: Menu) {
     Drill(Icons.Outlined.History, "History", onEnter = { menu.enter(Layer.History) })
     Drill(Icons.Outlined.Bookmarks, "Bookmarks", onEnter = { menu.enter(Layer.Bookmarks) })
     Item(Icons.Outlined.Download, "Downloads", onClick = { menu.show(Panel.Downloads) })
-    Drill(Icons.Outlined.Key, "Passwords", onEnter = { menu.enter(Layer.Passwords) })
+    if (settings.passwordService == Service.BuiltIn) Drill(Icons.Outlined.Key, "Passwords", onEnter = { menu.enter(Layer.Passwords) })
     Divider()
     ZoomBand(browser.tab)
     Divider()

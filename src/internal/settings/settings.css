@@ -283,3 +283,33 @@ label.row {
     padding: 64px 20px 64px;
   }
 }
+
+.vault-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding-block: 14px;
+}
+
+.vault-form .segmented {
+  align-self: flex-start;
+}
+
+.vault-inline,
+.vault-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.vault-inline .field {
+  flex: 1;
+}
+
+.vault-buttons {
+  justify-content: flex-end;
+}
+
+.vault-search {
+  flex: 1;
+}

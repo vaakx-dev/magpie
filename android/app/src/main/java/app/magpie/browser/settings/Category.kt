@@ -24,7 +24,7 @@ enum class Category(val label: String, val icon: ImageVector, private val terms:
         Icons.Outlined.Shield,
         listOf("Ad blocker", "Strip tracking from URLs", "Tracking protection", "Clear browsing data"),
     ),
-    Passwords("Passwords", Icons.Outlined.Key, listOf("Bitwarden", "Open Bitwarden", "Lock vault")),
+    Passwords("Passwords", Icons.Outlined.Key, listOf("Android System Autofill", "Change autofill service", "Built-in Bitwarden Vault", "Bitwarden", "Open vault")),
     Addons(
         "Add-ons",
         Icons.Outlined.Extension,

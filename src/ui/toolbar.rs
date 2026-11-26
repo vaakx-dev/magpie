@@ -11,14 +11,17 @@ use super::{
     command::{Mode, Target},
     field::Field,
     icon::Icon,
+    password::Phase,
     sidebar::Density,
     surface::{Colors, tint},
+    window,
 };
 use crate::{
     address::destination,
     config::{Side, Sidebar},
     internal::Page,
     locale::Text,
+    webview::autofill::fillable,
 };
 
 actions!(address_bar, [Navigate, CancelEdit]);
@@ -172,6 +175,35 @@ impl Browser {
             }))
     }
 
+    fn key_button(&self, cx: &mut Context<Self>) -> Option<Stateful<Div>> {
+        let view = self.active_view()?.read(cx);
+        let page = view.url()?;
+        let saved = || match window::keyring(cx).read(cx).phase() {
+            Phase::Unlocked(vault) => !vault.matches_for_url(page.as_str()).is_empty(),
+            _ => false,
+        };
+        if !fillable(page) || !(view.login_form() || saved()) {
+            return None;
+        }
+        let colors = self.colors();
+        let hover = colors.overlay;
+        let color = match view.login_field().is_some() {
+            true => colors.text,
+            false => colors.muted,
+        };
+        Some(
+            plain_button("passwords-key", Icon::KeyRound, rgba(color).into())
+                .size(px(INNER_BUTTON_PX))
+                .cursor_pointer()
+                .when(self.passwords_shown(), |button| button.bg(rgba(hover)))
+                .hover(move |button| button.bg(rgba(hover)))
+                .on_click(cx.listener(|browser, _: &ClickEvent, window, cx| {
+                    cx.stop_propagation();
+                    browser.toggle_passwords(window, cx);
+                })),
+        )
+    }
+
     fn address_bar_shown(&self) -> bool {
         let layout = self.layout();
         let roomy_sidebar = layout.sidebar == Sidebar::Shown && self.density() == Density::Roomy;
@@ -279,6 +311,7 @@ impl Browser {
                     .child(address),
             )
             .children(self.zoom_badge(cx))
+            .children(self.key_button(cx))
             .child(self.favorite_button(cx))
     }
 

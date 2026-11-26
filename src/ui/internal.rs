@@ -7,7 +7,7 @@ use super::{
     browser::Browser,
     command::Target,
     downloads::{Control, Downloads, open_file, show_in_folder},
-    password::{Keyring, Phase},
+    password::passwords_state,
     update::{Updater, updater},
     window,
 };
@@ -16,7 +16,7 @@ use crate::{
     import::{Imported, detect},
     internal::{
         Message, Page,
-        settings::{self, Import, Passwords, Reply, Section, Snapshot},
+        settings::{self, Import, Reply, Section, Snapshot},
     },
     locale::Text,
     pages::{self, LocalTime, PageAction, bookmarks_payload, history_payload, newtab_payload},
@@ -54,26 +54,6 @@ fn reply(view: &WeakEntity<WebView>, reply: &Reply, cx: &mut AsyncApp) {
     view.update(cx, |view, _| view.post(&json)).ok();
 }
 
-fn passwords(phase: Phase) -> Passwords {
-    match phase {
-        Phase::Busy => Passwords::Working,
-        Phase::Unavailable(reason) => Passwords::Unavailable {
-            reason: reason.to_owned(),
-        },
-        Phase::SignedOut | Phase::Challenged(_) => Passwords::SignedOut,
-        Phase::Locked(vault) => Passwords::Locked {
-            email: vault.email().map(str::to_owned),
-        },
-        Phase::Unlocked(vault) => Passwords::Unlocked {
-            email: vault.email().map(str::to_owned),
-        },
-    }
-}
-
-fn keyring(cx: &App) -> Entity<Keyring> {
-    cx.global::<window::Shared>().keyring.clone()
-}
-
 pub(super) fn history_changed(cx: &mut App) {
     window::each_browser(cx, |browser, cx| {
         browser.refresh_pages(&[Page::History], cx)
@@ -89,7 +69,9 @@ pub(super) fn updates_changed(cx: &mut App) {
 
 pub(super) fn passwords_changed(cx: &mut App) {
     window::each_browser(cx, |browser, cx| {
-        browser.refresh_pages(&[Page::Settings], cx)
+        browser.refresh_pages(&[Page::Settings], cx);
+        browser.continue_after_unlock(cx);
+        cx.notify();
     });
 }
 
@@ -130,7 +112,7 @@ impl Browser {
             permissions: self.runtime.permissions().sites(),
             default_downloads: default_downloads(),
             data_folder: self.store.folder(),
-            passwords: passwords(keyring(cx).read(cx).phase()),
+            passwords: passwords_state(window::keyring(cx).read(cx), self.locale()),
             profiles: &self.store.profiles(),
             spaces: self.assignable_spaces(),
             update: updater(cx).read(cx).phase().clone(),
@@ -303,8 +285,7 @@ impl Browser {
             }
             settings::Message::InstallUpdate => updater(cx).update(cx, Updater::install),
             settings::Message::RunImport(import) => self.import(view, import, cx),
-            settings::Message::OpenPasswords => self.open_passwords(cx),
-            settings::Message::LockPasswords => keyring(cx).update(cx, Keyring::lock),
+            settings::Message::Passwords { action } => self.answer_passwords(view, action, cx),
             settings::Message::CreateProfile { name } => self.create_profile(&name, cx),
             settings::Message::RenameProfile { profile, name } => {
                 self.rename_profile(&profile, &name, cx)
@@ -314,18 +295,6 @@ impl Browser {
                 self.assign_profile(space, &profile, cx)
             }
         }
-    }
-
-    fn open_passwords(&self, cx: &mut Context<Self>) {
-        let browser = cx.entity();
-        let window = self.runtime.window();
-        cx.defer(move |cx| {
-            window
-                .update(cx, |_, window, cx| {
-                    browser.update(cx, |browser, cx| browser.show_passwords(window, cx))
-                })
-                .ok();
-        });
     }
 
     fn greet_settings(&self, view: WeakEntity<WebView>, cx: &mut Context<Self>) {

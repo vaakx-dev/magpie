@@ -354,14 +354,61 @@
         <div class="card">
           <div class="row">
             <div class="label" aria-live="polite">
-              <div class="title" id="vault-status" data-text="SignedOut">Signed out</div>
+              <div class="title" id="vault-status" data-text="SignInToBitwarden">Sign in to Bitwarden</div>
               <div class="description" id="vault-detail" hidden></div>
+              <div class="description error" id="vault-problem" hidden></div>
             </div>
             <div class="actions">
+              <button class="button" id="vault-sync" type="button" data-text="Sync" hidden>Sync</button>
               <button class="button" id="vault-lock" type="button" data-text="Lock" hidden>Lock</button>
-              <button class="button primary" id="vault-open" type="button" data-text="SignIn">Sign in</button>
+              <button class="button" id="vault-sign-out" type="button" data-text="SignOut" hidden>Sign out</button>
             </div>
           </div>
+          <form class="vault-form" id="vault-sign-in" hidden>
+            <div class="segmented" role="radiogroup" aria-label="Server">
+              <label><input type="radio" name="vault-host" value="united_states" checked>Bitwarden US</label>
+              <label><input type="radio" name="vault-host" value="europe">Bitwarden EU</label>
+              <label><input type="radio" name="vault-host" value="custom"><span data-text="SelfHosted">Self-hosted</span></label>
+            </div>
+            <input class="field url" id="vault-address" type="url" spellcheck="false" placeholder="https://vault.example.com" aria-label="Server address" hidden>
+            <input class="field" id="vault-email" type="email" spellcheck="false" autocomplete="off" aria-label="Email">
+            <input class="field" id="vault-password" type="password" autocomplete="off" aria-label="Master password">
+            <div class="vault-buttons">
+              <button class="button primary" type="submit" data-text="SignIn">Sign in</button>
+            </div>
+          </form>
+          <form class="vault-form" id="vault-challenge" hidden>
+            <div class="segmented" id="vault-methods" role="radiogroup" aria-label="Method"></div>
+            <input class="field" id="vault-code" type="text" inputmode="numeric" spellcheck="false" autocomplete="one-time-code" aria-label="Verification code">
+            <div class="vault-buttons">
+              <button class="button" id="vault-email-code" type="button" data-text="SendEmailCode">Send code by email</button>
+              <button class="button" id="vault-cancel" type="button" data-text="Cancel">Cancel</button>
+              <button class="button primary" type="submit" data-text="Continue">Continue</button>
+            </div>
+          </form>
+          <form class="vault-form" id="vault-unlock" hidden>
+            <button class="button primary" id="vault-hello-unlock" type="button" data-text="UnlockWithHello" hidden>Unlock with Windows Hello</button>
+            <div class="vault-inline">
+              <input class="field" id="vault-unlock-password" type="password" autocomplete="off" aria-label="Master password">
+              <button class="button" type="submit" data-text="Unlock">Unlock</button>
+            </div>
+          </form>
+          <label class="row" id="vault-hello" hidden>
+            <span class="label">
+              <span class="title" data-text="WindowsHello">Windows Hello</span>
+              <span class="description" data-text="WindowsHelloHint">Unlock with your face, fingerprint or PIN instead of the master password</span>
+            </span>
+            <input class="switch" id="vault-hello-switch" type="checkbox" role="switch">
+          </label>
+        </div>
+      </div>
+      <div class="group" id="vault-browse" hidden>
+        <h2 id="vault-count"></h2>
+        <div class="card">
+          <div class="row">
+            <input class="field vault-search" id="vault-search" type="search" spellcheck="false" autocomplete="off" aria-label="Search logins">
+          </div>
+          <div class="list" id="vault-logins"></div>
         </div>
       </div>
     </section>

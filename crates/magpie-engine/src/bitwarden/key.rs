@@ -72,6 +72,13 @@ impl SymmetricKey {
         })
     }
 
+    pub fn bytes(&self) -> Zeroizing<Vec<u8>> {
+        let mut bytes = Zeroizing::new(Vec::with_capacity(2 * KEY_BYTES));
+        bytes.extend_from_slice(&self.encryption);
+        bytes.extend_from_slice(&self.mac);
+        bytes
+    }
+
     pub fn encryption(&self) -> &[u8; KEY_BYTES] {
         &self.encryption
     }

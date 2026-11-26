@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use magpie_engine::bitwarden::CipherId;
 use serde::Serialize;
 
 use crate::{
@@ -24,7 +25,7 @@ use crate::{
     zoom::Zoom,
 };
 
-const PAGE_TEXT: [Text; 160] = [
+const PAGE_TEXT: [Text; 180] = [
     Text::Settings,
     Text::Appearance,
     Text::General,
@@ -143,7 +144,27 @@ const PAGE_TEXT: [Text; 160] = [
     Text::Lock,
     Text::Working,
     Text::Unavailable,
-    Text::OpenBitwarden,
+    Text::SignInToBitwarden,
+    Text::BitwardenHint,
+    Text::SelfHosted,
+    Text::Email,
+    Text::MasterPassword,
+    Text::TwoStepLogin,
+    Text::VerificationCode,
+    Text::SendEmailCode,
+    Text::EmailCodeSent,
+    Text::Continue,
+    Text::UnlockWithHello,
+    Text::SignOut,
+    Text::Sync,
+    Text::WindowsHello,
+    Text::WindowsHelloHint,
+    Text::SearchVault,
+    Text::NoMatchingLogins,
+    Text::Username,
+    Text::Password,
+    Text::Code,
+    Text::SavedLogins,
     Text::ReaderMode,
     Text::ReaderModeHint,
     Text::ReaderFont,
@@ -217,14 +238,59 @@ pub struct SpaceRow {
     profile: ProfileId,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Hello {
+    pub available: bool,
+    pub on: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Method {
+    pub value: &'static str,
+    pub name: &'static str,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Challenge {
+    pub methods: Vec<Method>,
+    pub email_sent: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum Passwords {
     Working,
-    Unavailable { reason: String },
-    SignedOut,
-    Locked { email: Option<String> },
-    Unlocked { email: Option<String> },
+    Unavailable {
+        reason: String,
+    },
+    SignedOut {
+        problem: Option<String>,
+    },
+    Challenged {
+        challenge: Challenge,
+        problem: Option<String>,
+    },
+    Locked {
+        email: Option<String>,
+        hello: Hello,
+        problem: Option<String>,
+    },
+    Unlocked {
+        email: Option<String>,
+        logins: usize,
+        hello: Hello,
+        problem: Option<String>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct LoginRow {
+    pub id: CipherId,
+    pub name: String,
+    pub username: String,
+    pub site: String,
+    pub password: bool,
+    pub code: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -310,6 +376,9 @@ pub enum Reply {
     Imported {
         summary: String,
         warnings: Vec<String>,
+    },
+    Logins {
+        logins: Vec<LoginRow>,
     },
 }
 
@@ -521,6 +590,10 @@ impl Reply {
             summary: format!("✓ Imported {bookmarks}, {history}"),
             warnings: report.warnings,
         }
+    }
+
+    pub fn logins(logins: Vec<LoginRow>) -> Self {
+        Self::Logins { logins }
     }
 
     pub fn json(&self) -> String {

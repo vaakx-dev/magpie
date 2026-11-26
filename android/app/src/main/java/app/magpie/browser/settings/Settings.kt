@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.edit
 import app.magpie.browser.focus.Distraction
 import app.magpie.browser.focus.Focus
+import app.magpie.browser.password.Service
 import app.magpie.browser.privacy.Privacy
 import java.net.URLEncoder
 import kotlin.properties.ReadWriteProperty
@@ -46,6 +47,7 @@ private const val MENU_SIDE = "menu_side"
 private const val SWIPE_TABS = "swipe_tabs"
 private const val BACKGROUND_PLAY = "background_play"
 private const val AUTO_UPDATE = "auto_update"
+private const val PASSWORD_SERVICE = "password_service"
 
 class Settings(private val preferences: SharedPreferences) {
     var theme: ThemeMode by stored(enumValue(THEME, ThemeMode.System)) { putString(THEME, it.name) }
@@ -69,6 +71,10 @@ class Settings(private val preferences: SharedPreferences) {
     var backgroundPlay: Boolean by stored(preferences.getBoolean(BACKGROUND_PLAY, true)) { putBoolean(BACKGROUND_PLAY, it) }
 
     var autoUpdate: Boolean by stored(preferences.getBoolean(AUTO_UPDATE, true)) { putBoolean(AUTO_UPDATE, it) }
+
+    var passwordService: Service by stored(enumValue(PASSWORD_SERVICE, Service.SystemAutofill)) {
+        putString(PASSWORD_SERVICE, it.name)
+    }
 
     var focus: Focus by stored(storedFocus()) { focus ->
         Distraction.entries.forEach { putBoolean(it.key, focus.blocks(it)) }

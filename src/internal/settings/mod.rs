@@ -3,8 +3,8 @@ mod reply;
 
 use url::Url;
 
-pub use message::{Import, Message};
-pub use reply::{Passwords, Reply, Snapshot};
+pub use message::{Host, Import, Message, Part, PasswordAction, Secret};
+pub use reply::{Challenge, Hello, LoginRow, Method, Passwords, Reply, Snapshot};
 
 use super::{Asset, Page};
 

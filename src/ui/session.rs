@@ -117,6 +117,7 @@ impl Browser {
             Event::ReaderStyle(style) => self.keep_reader_style(*style, cx),
             Event::Fullscreen(true) => self.enter_page_fullscreen(view, cx),
             Event::Fullscreen(false) => self.exit_page_fullscreen(view, cx),
+            Event::Submitted(submission) => self.offer_to_save(view, submission, cx),
         }
     }
 

@@ -10,7 +10,9 @@ use magpie::{
     import::{Report, Scope},
     internal::{
         Message, Page, resource,
-        settings::{self, Passwords, Reply, Section, Snapshot},
+        settings::{
+            self, Hello, Host, PasswordAction, Passwords, Reply, Secret, Section, Snapshot,
+        },
     },
     pages::PageAction,
     storage::{
@@ -24,6 +26,7 @@ use magpie::{
 use magpie_engine::update::Offer;
 use serde_json::{Value, json};
 use url::Url;
+use zeroize::Zeroizing;
 
 use common::node_accepts;
 
@@ -61,6 +64,11 @@ fn state(settings: &Settings, scheme: Scheme, default_downloads: Option<PathBuf>
         data_folder: Path::new("C:/Data/Magpie"),
         passwords: Passwords::Locked {
             email: Some("sam@example.com".to_owned()),
+            hello: Hello {
+                available: true,
+                on: true,
+            },
+            problem: None,
         },
         profiles: &profiles,
         spaces: &spaces,
@@ -183,13 +191,32 @@ fn parses_settings_page_messages() {
         settings_message(json!({"type": "install_update"})),
         Some(settings::Message::InstallUpdate)
     );
+    let sign_in = json!({
+        "type": "passwords",
+        "action": {
+            "kind": "sign_in",
+            "host": "custom",
+            "address": "https://vault.example.com",
+            "email": "sam@example.com",
+            "password": "hunter2",
+        },
+    });
     assert_eq!(
-        settings_message(json!({"type": "open_passwords"})),
-        Some(settings::Message::OpenPasswords)
+        settings_message(sign_in),
+        Some(settings::Message::Passwords {
+            action: PasswordAction::SignIn {
+                host: Host::Custom,
+                address: "https://vault.example.com".to_owned(),
+                email: "sam@example.com".to_owned(),
+                password: Secret(Zeroizing::new("hunter2".to_owned())),
+            },
+        })
     );
     assert_eq!(
-        settings_message(json!({"type": "lock_passwords"})),
-        Some(settings::Message::LockPasswords)
+        settings_message(json!({"type": "passwords", "action": {"kind": "set_hello", "on": true}})),
+        Some(settings::Message::Passwords {
+            action: PasswordAction::SetHello { on: true },
+        })
     );
     assert_eq!(
         settings_message(json!({"type": "assign_profile", "space": 3, "profile": "default"})),
@@ -318,7 +345,12 @@ fn state_reflects_settings_changed_by_the_page() {
     assert_eq!(themes, ["System", "Light", "Dark"]);
     assert_eq!(
         state["passwords"],
-        json!({"status": "locked", "email": "sam@example.com"})
+        json!({
+            "status": "locked",
+            "email": "sam@example.com",
+            "hello": {"available": true, "on": true},
+            "problem": null,
+        })
     );
     assert_eq!(
         state["update"],

@@ -9,6 +9,7 @@ use windows::core::{PWSTR, Result};
 use super::{
     Disposition,
     audio::Audio,
+    autofill::{Sighting, Submission},
     download::{Prompt, Transfer},
     media::Track,
     permission::Prompt as PermissionPrompt,
@@ -46,6 +47,8 @@ pub enum Signal {
     Fullscreen(bool),
     Internal(internal::Message),
     Permission(PermissionPrompt),
+    Login(Sighting),
+    Submitted(Submission),
 }
 
 #[derive(Clone)]
