@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
+import app.magpie.browser.storage.JsonFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +50,8 @@ class Download(val name: String, val type: String, val total: Long?) {
 private class Target(val uri: Uri, val output: OutputStream, val discard: () -> Unit, val publish: () -> Unit = {})
 
 private const val FALLBACK_TYPE = "application/octet-stream"
+private const val DOWNLOADS_FILE = "downloads.json"
+private val KEPT = setOf(Progress.Done, Progress.Failed)
 private val PROGRESS_LABELS = mapOf(
     Progress.Done to "Saved to Downloads",
     Progress.Failed to "Download failed",
@@ -72,6 +75,14 @@ fun Download.open(context: Context) {
     }
 }
 
+private fun Download.record(): Record = Record(name, type, total, progress, received, uri?.toString())
+
+private fun Record.download(): Download = Download(name, type, total).also {
+    it.progress = progress
+    it.received = received
+    it.uri = uri?.let(Uri::parse)
+}
+
 private fun mediaType(response: WebResponse): String =
     response.headers["Content-Type"]?.substringBefore(';')?.trim()?.ifEmpty { null } ?: FALLBACK_TYPE
 
@@ -83,7 +94,8 @@ private fun describe(response: WebResponse): Download {
 }
 
 class Downloads(private val context: Context, private val scope: CoroutineScope) {
-    val list = mutableStateListOf<Download>()
+    private val file = JsonFile(context, DOWNLOADS_FILE, scope)
+    val list = mutableStateListOf<Download>().apply { addAll(file.read(::records).orEmpty().map { it.download() }) }
     var announced by mutableStateOf<Download?>(null)
         private set
 
@@ -92,7 +104,7 @@ class Downloads(private val context: Context, private val scope: CoroutineScope)
         list.add(0, download)
         announced = download
         when (val body = response.body) {
-            null -> download.progress = Progress.Failed
+            null -> finish(download, Progress.Failed)
             else -> download.job = scope.launch { receive(download, body) }
         }
     }
@@ -101,15 +113,28 @@ class Downloads(private val context: Context, private val scope: CoroutineScope)
         if (announced == download) announced = null
     }
 
+    fun clear() {
+        list.removeAll { it.progress != Progress.Running }
+        if (announced !in list) announced = null
+        persist()
+    }
+
+    private fun finish(download: Download, progress: Progress) {
+        download.progress = progress
+        persist()
+    }
+
+    private fun persist() = file.write(list.filter { it.progress in KEPT }.map { it.record() }.json())
+
     private suspend fun receive(download: Download, body: InputStream) {
         try {
             download.uri = withContext(Dispatchers.IO) { body.use { write(download, it) } }
-            download.progress = Progress.Done
+            finish(download, Progress.Done)
         } catch (cancelled: CancellationException) {
             download.progress = Progress.Cancelled
             throw cancelled
         } catch (failure: Exception) {
-            download.progress = Progress.Failed
+            finish(download, Progress.Failed)
         }
     }
 

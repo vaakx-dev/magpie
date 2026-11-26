@@ -19,6 +19,7 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSession.NavigationDelegate.LoadRequest
 import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
 import org.mozilla.geckoview.GeckoSession.ProgressDelegate.SecurityInformation
+import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 import org.mozilla.geckoview.MediaSession
 import org.mozilla.geckoview.WebExtension
@@ -50,8 +51,10 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     var zoom by mutableStateOf(Zoom.DEFAULT); private set
     var media by mutableStateOf<Media?>(null); private set
     var fullScreen by mutableStateOf(false); private set
+    var desktop by mutableStateOf(false); private set
     private var portraitVideo by mutableStateOf(false)
     private var port: WebExtension.Port? = null
+    private var asleep = false
 
     private val remembered = space.profile != Profile.Private
 
@@ -70,9 +73,33 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     val orientation: Int
         get() = if (fullScreen && !portraitVideo) SCREEN_ORIENTATION_USER_LANDSCAPE else SCREEN_ORIENTATION_UNSPECIFIED
 
+    val saved: SavedTab get() = SavedTab(url, title)
+
     fun load(address: String) {
         url = address
         session.loadUri(address)
+    }
+
+    fun restore(saved: SavedTab) {
+        url = saved.url
+        title = saved.title
+        asleep = true
+    }
+
+    fun wake() {
+        if (!asleep) return
+        asleep = false
+        session.open(browser.engine.runtime)
+        session.loadUri(url)
+    }
+
+    fun toggleDesktop() {
+        desktop = !desktop
+        session.settings.userAgentMode =
+            if (desktop) GeckoSessionSettings.USER_AGENT_MODE_DESKTOP else GeckoSessionSettings.USER_AGENT_MODE_MOBILE
+        session.settings.viewportMode =
+            if (desktop) GeckoSessionSettings.VIEWPORT_MODE_DESKTOP else GeckoSessionSettings.VIEWPORT_MODE_MOBILE
+        session.reload()
     }
 
     suspend fun capture(view: GeckoView) {

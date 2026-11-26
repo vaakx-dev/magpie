@@ -19,6 +19,7 @@ import app.magpie.browser.settings.Settings
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import app.magpie.browser.space.Spaces
+import app.magpie.browser.storage.JsonFile
 import app.magpie.browser.update.Updates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -31,6 +32,9 @@ import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.WebExtension
 
 private const val PREFERENCES = "magpie"
+private const val TABS_FILE = "tabs.json"
+
+private val Tab.saveable: Boolean get() = space.profile is Profile.Named && !blank
 
 class Browser(private val context: Context) {
     val scope = MainScope()
@@ -49,6 +53,8 @@ class Browser(private val context: Context) {
     var space by mutableStateOf(spaces.saved.first())
         private set
     private val selected = mutableStateMapOf<String, Tab>()
+    val closed = ClosedTabs()
+    private val tabsFile = JsonFile(context, TABS_FILE, scope)
     private var extension: WebExtension? = null
     private var nextTabId = 0L
 
@@ -60,6 +66,8 @@ class Browser(private val context: Context) {
 
     init {
         engine.install(::connect)
+        restoreTabs()
+        followTabs()
         followSettings()
         updates.checkIfDue()
     }
@@ -74,27 +82,26 @@ class Browser(private val context: Context) {
 
     fun openPrivate(): Tab = open(Space.PRIVATE)
 
-    fun adopt(space: Space): Tab {
-        val tab = Tab(nextTabId++, space, engine.session(space), this)
-        extension?.let(tab::connect)
-        tabs += tab
-        select(tab)
-        return tab
+    fun adopt(space: Space): Tab = create(space).also {
+        tabs += it
+        select(it)
     }
 
     fun select(tab: Tab) {
         this.tab?.takeIf { it != tab }?.session?.exitFullScreen()
-        space = tab.space
         selected[tab.space.id] = tab
+        switch(tab.space)
     }
 
     fun close(tab: Tab) {
-        val siblings = tabs.filter { it.space == tab.space }
-        val neighbour = siblings.getOrNull(siblings.indexOf(tab) - 1) ?: siblings.getOrNull(1)
-        tabs -= tab
-        tab.session.close()
-        if (selected[tab.space.id] != tab) return
-        if (neighbour == null) selected.remove(tab.space.id) else selected[tab.space.id] = neighbour
+        if (tab.saveable) closed.push(ClosedTab(tab.space.id, tab.saved, tabs.indexOf(tab)))
+        discard(tab)
+    }
+
+    fun undo() {
+        val last = closed.pop() ?: return
+        val space = spaces.saved.find { it.id == last.space } ?: return
+        select(restore(space, last.tab, last.index.coerceAtMost(tabs.size)))
     }
 
     fun neighbour(step: Int): Tab? {
@@ -105,11 +112,14 @@ class Browser(private val context: Context) {
     fun clearBrowsingData() {
         history.clear()
         favicons.clear()
+        downloads.clear()
+        closed.clear()
         spaces.profiles.forEach(engine::clear)
     }
 
     fun switch(space: Space) {
         this.space = space
+        tab?.wake()
     }
 
     fun addSpace(name: String, profile: Profile.Named?) = switch(spaces.add(name, profile))
@@ -121,7 +131,8 @@ class Browser(private val context: Context) {
     }
 
     fun removeSpace(space: Space) {
-        tabs.filter { it.space == space }.forEach(::close)
+        tabs.filter { it.space == space }.forEach(::discard)
+        closed.forget(space.id)
         spaces.remove(space)
         if (this.space == space) switch(spaces.saved.first())
     }
@@ -142,6 +153,51 @@ class Browser(private val context: Context) {
 
     fun background() {
         if (!settings.backgroundPlay) tabs.forEach { it.media?.controller?.pause() }
+    }
+
+    private fun create(space: Space): Tab = Tab(nextTabId++, space, engine.session(space), this).also { tab ->
+        extension?.let(tab::connect)
+    }
+
+    private fun restore(space: Space, saved: SavedTab, index: Int): Tab = create(space).also {
+        it.restore(saved)
+        tabs.add(index, it)
+    }
+
+    private fun discard(tab: Tab) {
+        val siblings = tabs.filter { it.space == tab.space }
+        val neighbour = siblings.getOrNull(siblings.indexOf(tab) - 1) ?: siblings.getOrNull(1)
+        tabs -= tab
+        tab.session.close()
+        if (selected[tab.space.id] != tab) return
+        if (neighbour == null) selected.remove(tab.space.id) else selected[tab.space.id] = neighbour
+        this.tab?.wake()
+    }
+
+    private fun savedTabs(): SavedTabs =
+        SavedTabs(space.id.takeIf { space.profile is Profile.Named }, spaces.saved.map(::savedSpace))
+
+    private fun savedSpace(space: Space): SavedSpace {
+        val kept = tabs.filter { it.space == space && it.saveable }
+        val active = kept.indexOf(selected[space.id]).takeIf { it >= 0 }
+        return SavedSpace(space.id, kept.map { it.saved }, active)
+    }
+
+    private fun restoreTabs() {
+        val saved = tabsFile.read(::savedTabs) ?: return
+        saved.spaces.forEach(::restoreSpace)
+        switch(spaces.saved.find { it.id == saved.space } ?: space)
+    }
+
+    private fun restoreSpace(saved: SavedSpace) {
+        val space = spaces.saved.find { it.id == saved.id } ?: return
+        val restored = saved.tabs.map { restore(space, it, tabs.size) }
+        val active = saved.selected?.let(restored::getOrNull) ?: restored.lastOrNull() ?: return
+        selected[space.id] = active
+    }
+
+    private fun followTabs() {
+        scope.launch { snapshotFlow { savedTabs() }.drop(1).collect { tabsFile.write(it.json()) } }
     }
 
     private fun connect(ready: WebExtension) {

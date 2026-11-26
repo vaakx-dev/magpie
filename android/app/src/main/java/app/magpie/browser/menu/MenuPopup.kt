@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.DesktopWindows
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Key
@@ -119,6 +120,9 @@ private fun RootLayer(menu: Menu) {
     Divider()
     Item(Icons.Outlined.Search, "Find in Page", onClick = page?.let { { menu.show(Panel.Find) } })
     Item(Icons.AutoMirrored.Outlined.ChromeReaderMode, "Reader Mode", onClick = page?.let { { menu.run(it::toggleReader) } })
+    Item(Icons.Outlined.DesktopWindows, "Desktop Site", onClick = page?.let { { menu.run(it::toggleDesktop) } }) {
+        page?.let { tab -> Toggle(tab.desktop, onChange = { menu.run(tab::toggleDesktop) }) }
+    }
     Item(Icons.Outlined.DarkMode, "Force Dark Mode", onClick = { settings.forceDark = !settings.forceDark }) {
         Toggle(settings.forceDark, onChange = { settings.forceDark = it })
     }
