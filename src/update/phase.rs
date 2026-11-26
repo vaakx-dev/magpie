@@ -12,6 +12,7 @@ pub enum Phase {
     Downloading { offer: Offer, percent: u8 },
     DownloadFailed { offer: Offer, message: String },
     Installing { offer: Offer },
+    InstallFailed { message: String },
 }
 
 impl From<Status> for Phase {

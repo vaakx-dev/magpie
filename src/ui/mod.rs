@@ -187,12 +187,6 @@ fn load_filter_lists(shield: Arc<Shield>, folder: PathBuf, cx: &mut App) {
 
 fn keyring(config_folder: &Path, cx: &mut App) -> Entity<Keyring> {
     let keyring = cx.new(|cx| Keyring::open(&config_folder.join(BITWARDEN_FOLDER), cx));
-    let locked = keyring.clone();
-    cx.on_app_quit(move |cx| {
-        locked.update(cx, Keyring::lock);
-        async {}
-    })
-    .detach();
     cx.observe(&keyring, |_, cx| internal::passwords_changed(cx))
         .detach();
     keyring

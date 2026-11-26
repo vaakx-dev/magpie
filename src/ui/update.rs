@@ -20,10 +20,25 @@ pub struct Updater {
     schedule: Schedule,
 }
 
+fn last_attempt(folder: &Path) -> Phase {
+    let failure = update::failure(folder);
+    if let Err(error) = update::clear(folder) {
+        eprintln!("magpie: could not remove old update files: {error}");
+    }
+    match failure {
+        Ok(Some(message)) => Phase::InstallFailed { message },
+        Ok(None) => Phase::Idle,
+        Err(error) => {
+            eprintln!("magpie: could not read how the last update went: {error}");
+            Phase::Idle
+        }
+    }
+}
+
 impl Updater {
     pub fn new(config_folder: &Path) -> Self {
         Self {
-            phase: Phase::Idle,
+            phase: last_attempt(&update::folder()),
             dismissed: false,
             schedule: Schedule::at(config_folder.join(SCHEDULE_FILE)),
         }
@@ -55,7 +70,10 @@ impl Updater {
     }
 
     pub fn check_if_due(&mut self, updates: &Updates, cx: &mut Context<Self>) {
-        if updates.automatic.on() && self.schedule.due(SystemTime::now()) {
+        if updates.automatic.on()
+            && self.phase == Phase::Idle
+            && self.schedule.due(SystemTime::now())
+        {
             self.check(updates, cx);
         }
     }

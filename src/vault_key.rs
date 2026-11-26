@@ -17,9 +17,17 @@ use windows::{
 use zeroize::{Zeroize, Zeroizing};
 
 const FILE_NAME: &str = "vault.key";
+const HELLO_FILE_NAME: &str = "hello.key";
 
 #[derive(Clone)]
 pub struct VaultKey(PathBuf);
+
+fn unless_missing(result: io::Result<()>) -> io::Result<()> {
+    match result {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        other => other,
+    }
+}
 
 fn blob(bytes: &[u8]) -> CRYPT_INTEGER_BLOB {
     CRYPT_INTEGER_BLOB {
@@ -79,6 +87,13 @@ impl VaultKey {
         self.0.exists()
     }
 
+    pub fn adopt_hello_key(&self) -> io::Result<()> {
+        if self.saved() {
+            return Ok(());
+        }
+        unless_missing(fs::rename(self.0.with_file_name(HELLO_FILE_NAME), &self.0))
+    }
+
     pub fn save(&self, vault: &Vault) -> Result<(), Error> {
         let key = vault.key()?.bytes();
         Ok(fs::write(&self.0, protect(&key)?)?)
@@ -101,9 +116,6 @@ impl VaultKey {
     }
 
     fn forget(&self) -> io::Result<()> {
-        match fs::remove_file(&self.0) {
-            Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
-            _ => Ok(()),
-        }
+        unless_missing(fs::remove_file(&self.0))
     }
 }

@@ -110,6 +110,16 @@ fn remember(window: &Window, folder: &Path) {
     }
 }
 
+fn remember_on_quit(handle: WindowHandle<Browser>, folder: PathBuf, cx: &mut App) {
+    cx.on_app_quit(move |cx| {
+        handle
+            .update(cx, |_, window, _| remember(window, &folder))
+            .ok();
+        async {}
+    })
+    .detach();
+}
+
 fn options(role: Role, folder: &Path, cx: &App) -> WindowOptions {
     let restored = match role {
         Role::Primary => remembered(folder, cx),
@@ -173,7 +183,8 @@ pub fn open(
     let config_folder = shared.config_folder.clone();
     let config = Config::load(&config_folder);
     let role = store.role();
-    cx.open_window(options(role, &config_folder, cx), move |window, cx| {
+    let closing_folder = config_folder.clone();
+    let handle = cx.open_window(options(role, &config_folder, cx), move |window, cx| {
         let runtime = Runtime::new(window, setup, &config.settings)
             .expect("a GPUI window on Windows has a Win32 handle");
         let browser = cx.new(|cx| Browser::new(runtime, store, config, cx));
@@ -181,7 +192,7 @@ pub fn open(
         let closing = browser.downgrade();
         window.on_window_should_close(cx, move |window, cx| {
             if role == Role::Primary {
-                remember(window, &config_folder);
+                remember(window, &closing_folder);
             }
             closing
                 .update(cx, |browser, cx| browser.may_close(window, cx))
@@ -189,7 +200,11 @@ pub fn open(
         });
         browser.update(cx, |browser, cx| start(browser, window, cx));
         browser
-    })
+    })?;
+    if role == Role::Primary {
+        remember_on_quit(handle, config_folder, cx);
+    }
+    Ok(handle)
 }
 
 pub fn each_browser(cx: &mut App, update: impl Fn(&mut Browser, &mut Context<Browser>) + 'static) {

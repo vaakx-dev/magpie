@@ -27,7 +27,13 @@ const DARK_SITE_MODES = { off: "NeverDark", forced: "AlwaysDark" }
 
 const CLEARING_BUTTONS = ["clear-start", "clear-cancel", "clear-confirm"]
 
-const UPDATE_TONES = { up_to_date: "success", available: "success", failed: "error", download_failed: "error" }
+const UPDATE_TONES = {
+  up_to_date: "success",
+  available: "success",
+  failed: "error",
+  download_failed: "error",
+  install_failed: "error",
+}
 const INSTALLABLE_UPDATES = ["available", "download_failed"]
 const BUSY_UPDATES = ["checking", "downloading", "installing"]
 const NIGHTLY_VERSION = /^(.+)-nightly\.(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/
@@ -473,6 +479,8 @@ function updateMessage(update) {
       return `Could not install v${update.offer.version}. ${update.message}`
     case "installing":
       return `Installing v${update.offer.version}…`
+    case "install_failed":
+      return `The last update didn't install. ${update.message}`
   }
 }
 

@@ -30,7 +30,9 @@ OutputBaseFilename=Magpie-{#AssetLabel}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+AppMutex=Magpie.Instance
 CloseApplications=yes
+RestartApplications=no
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked

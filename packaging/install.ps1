@@ -20,6 +20,13 @@ function Assert-Package {
     }
 }
 
+function Assert-NotRunning([string] $Executable) {
+    $running = @(Get-Process -Name 'magpie' -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Executable })
+    if ($running) {
+        throw "Magpie is running from $InstallDir. Close it, then run install.ps1 again."
+    }
+}
+
 function Copy-Package {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     $PACKAGE_FILES | ForEach-Object { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $_) -Destination $InstallDir -Force }
@@ -71,6 +78,7 @@ function Save-Manifest([string[]] $Shortcuts) {
 
 Assert-Package
 $executable = Join-Path $InstallDir 'magpie.exe'
+Assert-NotRunning -Executable $executable
 Copy-Package
 $shortcuts = New-Shortcuts -Target $executable
 Register-Uninstall -Executable $executable

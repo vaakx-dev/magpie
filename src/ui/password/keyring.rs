@@ -84,11 +84,16 @@ impl Keyring {
             Ok(vault) => Slot::Ready(Box::new(vault)),
             Err(error) => Slot::Unavailable(error.to_string()),
         };
+        let key = VaultKey::in_folder(folder);
+        let problem = key
+            .adopt_hello_key()
+            .err()
+            .map(|error| Problem::Failed(error.to_string()));
         let mut keyring = Self {
             slot,
             pending: None,
-            problem: None,
-            key: VaultKey::in_folder(folder),
+            problem,
+            key,
         };
         if keyring.key.saved() {
             keyring.unlock_with_saved_key(cx);

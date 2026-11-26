@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use magpie::vault_key::VaultKey;
 use magpie_engine::bitwarden::{CipherString, Kdf, Server, Snapshot, Status, SymmetricKey, Vault};
@@ -47,6 +47,23 @@ fn relaunched(folder: &TempDir) -> Vault {
 fn saved_key_unlocks_the_vault_on_relaunch_without_the_master_password() {
     let (folder, vault, _) = unlocked_with_password();
     drop(vault);
+
+    assert_eq!(relaunched(&folder).status(), Status::Unlocked);
+}
+
+#[test]
+fn hello_key_from_an_earlier_version_unlocks_the_vault_after_an_update() {
+    let (folder, vault, _) = unlocked_with_password();
+    drop(vault);
+    fs::rename(
+        folder.path().join("vault.key"),
+        folder.path().join("hello.key"),
+    )
+    .unwrap();
+
+    VaultKey::in_folder(folder.path())
+        .adopt_hello_key()
+        .unwrap();
 
     assert_eq!(relaunched(&folder).status(), Status::Unlocked);
 }
