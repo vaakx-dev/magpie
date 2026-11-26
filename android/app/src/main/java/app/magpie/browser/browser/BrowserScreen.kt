@@ -4,12 +4,19 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imeAnimationTarget
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.LinearProgressIndicator
@@ -27,8 +34,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.magpie.browser.R
@@ -50,6 +59,11 @@ enum class Panel { Typing, Menu, Find, History, Bookmarks, Downloads, Passwords,
 
 private const val WELCOME_ALPHA = 0.35f
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Modifier.aboveKeyboard(chrome: Dp) =
+    consumeWindowInsets(PaddingValues(bottom = chrome)).windowInsetsPadding(WindowInsets.imeAnimationTarget)
+
 @Composable
 fun BrowserScreen(browser: Browser) {
     var panel by remember { mutableStateOf<Panel?>(null) }
@@ -62,11 +76,13 @@ fun BrowserScreen(browser: Browser) {
     if (panel == Panel.Settings) return SettingsScreen(browser, onBack = close, onPasswords = { panel = Panel.Passwords })
     val swipe = remember { Swipe() }
     val fullScreen = tab?.fullScreen == true
-    val insets = if (fullScreen) Modifier else Modifier.statusBarsPadding().imePadding()
+    var chrome by remember { mutableStateOf(0.dp) }
+    val insets = if (fullScreen) Modifier else Modifier.statusBarsPadding()
+    val page = if (fullScreen) Modifier else Modifier.aboveKeyboard(chrome)
     BackHandler(enabled = tab?.canGoBack == true) { tab?.session?.goBack() }
     BackHandler(enabled = fullScreen) { tab?.session?.exitFullScreen() }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).then(insets)) {
-        Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { hero.page = it.bounds() }) {
+        Box(Modifier.weight(1f).fillMaxWidth().then(page).onGloballyPositioned { hero.page = it.bounds() }) {
             tab?.let { Page(it, onView = { created -> hero.view = created }) }
             if (!fullScreen) {
                 if (tab?.blank != false) Welcome()
@@ -74,14 +90,17 @@ fun BrowserScreen(browser: Browser) {
                 SwipeHint(browser, swipe, Modifier.align(Alignment.BottomCenter))
             }
         }
-        if (!fullScreen) UpdateBanner(browser.updates)
-        when {
-            fullScreen -> Unit
-            panel == Panel.Find && tab != null ->
-                Box(Modifier.background(MaterialTheme.colorScheme.surface).navigationBarsPadding()) { FindBar(tab, onClose = close) }
-            else -> Box(Modifier.graphicsLayer { alpha = hero.barAlpha; translationY = hero.barShift }) {
-                AddressBar(browser, swipe, hero, onType = { panel = Panel.Typing }, onMenu = { panel = Panel.Menu })
-                if (panel == Panel.Menu) MenuPopup(browser, onOpen = { panel = it }, onDismiss = close)
+        if (!fullScreen) Column(Modifier.onSizeChanged { chrome = with(density) { it.height.toDp() } }) {
+            UpdateBanner(browser.updates)
+            when {
+                panel == Panel.Find && tab != null ->
+                    Box(Modifier.background(MaterialTheme.colorScheme.surface).windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
+                        FindBar(tab, onClose = close)
+                    }
+                else -> Box(Modifier.graphicsLayer { alpha = hero.barAlpha; translationY = hero.barShift }) {
+                    AddressBar(browser, swipe, hero, onType = { panel = Panel.Typing }, onMenu = { panel = Panel.Menu })
+                    if (panel == Panel.Menu) MenuPopup(browser, onOpen = { panel = it }, onDismiss = close)
+                }
             }
         }
     }
