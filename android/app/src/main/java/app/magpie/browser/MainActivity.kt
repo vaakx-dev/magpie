@@ -10,12 +10,14 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import app.magpie.browser.address.link
 import app.magpie.browser.browser.BrowserScreen
+import app.magpie.browser.favicon.LocalFavicons
 import app.magpie.browser.theme.MagpieTheme
 import app.magpie.browser.theme.dark
 
@@ -29,7 +31,7 @@ class MainActivity : ComponentActivity() {
             MagpieTheme(browser.settings.theme) {
                 SystemBars()
                 FullScreen()
-                BrowserScreen(browser)
+                CompositionLocalProvider(LocalFavicons provides browser.favicons) { BrowserScreen(browser) }
             }
         }
     }

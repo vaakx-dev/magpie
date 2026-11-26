@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import app.magpie.browser.address.resolve
 import app.magpie.browser.download.Downloads
+import app.magpie.browser.favicon.Favicons
 import app.magpie.browser.favorite.Favorites
 import app.magpie.browser.history.History
 import app.magpie.browser.media.Playback
@@ -36,6 +37,7 @@ class Browser(private val context: Context) {
     val favorites = Favorites(preferences)
     val history = History(preferences)
     val downloads = Downloads(context, scope)
+    val favicons = Favicons(context, scope)
     val vault = Vault()
     val engine = Engine(context, settings, scope)
     val updates = Updates(context, scope, settings)
@@ -99,6 +101,7 @@ class Browser(private val context: Context) {
 
     fun clearBrowsingData() {
         history.clear()
+        favicons.clear()
         spaces.profiles.forEach(engine::clear)
     }
 

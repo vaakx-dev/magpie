@@ -26,7 +26,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.magpie.browser.favicon.Favicon
 
+private val ICON_SIZE = 22.dp
+private val SITE_ICON_SIZE = 28.dp
 private val TOGGLE_WIDTH = 34.dp
 private val TOGGLE_HEIGHT = 20.dp
 private val TOGGLE_INSET = 3.dp
@@ -46,13 +49,13 @@ fun Section(text: String) {
 }
 
 @Composable
-fun Entry(
-    icon: ImageVector?,
+private fun Line(
+    leading: @Composable (() -> Unit)?,
     label: String,
     onClick: () -> Unit,
-    detail: String? = null,
-    enabled: Boolean = true,
-    trailing: @Composable (() -> Unit)? = null,
+    detail: String?,
+    enabled: Boolean,
+    trailing: @Composable (() -> Unit)?,
 ) {
     val color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
     Row(
@@ -60,7 +63,7 @@ fun Entry(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        icon?.let { Icon(it, contentDescription = null, tint = color, modifier = Modifier.size(22.dp)) }
+        leading?.invoke()
         Column(Modifier.weight(1f)) {
             Text(label, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
             detail?.let {
@@ -75,6 +78,25 @@ fun Entry(
         }
         trailing?.invoke()
     }
+}
+
+@Composable
+fun Entry(
+    icon: ImageVector?,
+    label: String,
+    onClick: () -> Unit,
+    detail: String? = null,
+    enabled: Boolean = true,
+    trailing: @Composable (() -> Unit)? = null,
+) {
+    val color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+    val leading: @Composable (() -> Unit)? = icon?.let { { Icon(it, contentDescription = null, tint = color, modifier = Modifier.size(ICON_SIZE)) } }
+    Line(leading, label, onClick, detail, enabled, trailing)
+}
+
+@Composable
+fun SiteEntry(url: String, label: String, onClick: () -> Unit, trailing: @Composable (() -> Unit)? = null) {
+    Line({ Favicon(url, SITE_ICON_SIZE) }, label, onClick, detail = url, enabled = true, trailing = trailing)
 }
 
 @Composable

@@ -72,6 +72,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.unit.sp
+import app.magpie.browser.favicon.Favicon
+import app.magpie.browser.favicon.retention
 import app.magpie.browser.menu.Divider
 import app.magpie.browser.menu.Floating
 import app.magpie.browser.menu.Item
@@ -81,7 +83,6 @@ import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import app.magpie.browser.space.SpaceDialog
 import app.magpie.browser.theme.Count
-import app.magpie.browser.theme.Letter
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.SearchBox
 import kotlinx.coroutines.launch
@@ -124,7 +125,7 @@ private fun Check(selected: Boolean) {
 private fun Preview(tab: Tab, modifier: Modifier) {
     Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
         when (val preview = tab.preview) {
-            null -> Letter(tab.url, 44.dp)
+            null -> Favicon(tab.url, 44.dp, tab.retention)
             else -> Image(preview, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)
         }
     }
@@ -180,7 +181,7 @@ private fun TabCard(tab: Tab, hero: Hero, active: Boolean, selected: Boolean?, o
             .clickable(onClick = onTap),
     ) {
         Row(Modifier.height(36.dp).padding(start = 10.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Letter(tab.url, 18.dp)
+            Favicon(tab.url, 20.dp, tab.retention)
             Text(
                 tab.label,
                 Modifier.weight(1f).padding(horizontal = 8.dp),
@@ -233,7 +234,7 @@ private fun SpaceCard(space: Space, tabs: List<Tab>, active: Boolean, onPick: ()
             Text(space.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(tabCount(tabs.size), fontSize = 12.sp, color = colors.onSurfaceVariant)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { tabs.take(SPACE_MARKS).forEach { Letter(it.url, 22.dp) } }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { tabs.take(SPACE_MARKS).forEach { Favicon(it.url, 22.dp, it.retention) } }
     }
 }
 

@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.magpie.browser.theme.Letter
+import app.magpie.browser.favicon.Favicon
 
 val PANEL_PADDING = 4.dp
 val ROW_HEIGHT = 44.dp
@@ -115,7 +115,7 @@ fun Drill(icon: ImageVector, label: String, onEnter: () -> Unit) {
 
 @Composable
 fun Link(url: String, title: String, onOpen: () -> Unit) {
-    Line(leading = { Letter(url, ICON_SIZE) }, label = title.ifBlank { url }, modifier = Modifier.clickable(onClick = onOpen))
+    Line(leading = { Favicon(url, ICON_SIZE) }, label = title.ifBlank { url }, modifier = Modifier.clickable(onClick = onOpen))
 }
 
 @Composable

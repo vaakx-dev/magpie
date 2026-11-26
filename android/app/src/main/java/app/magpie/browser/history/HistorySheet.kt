@@ -14,9 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.magpie.browser.browser.Browser
-import app.magpie.browser.theme.Entry
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Sheet
+import app.magpie.browser.theme.SiteEntry
 import app.magpie.browser.theme.Title
 
 @Composable
@@ -34,7 +34,7 @@ fun HistorySheet(browser: Browser, onDismiss: () -> Unit) {
         if (history.visits.isEmpty()) Note("Pages you visit show up here. Private tabs are never saved.")
         LazyColumn(Modifier.heightIn(max = 480.dp)) {
             items(history.visits, key = { it.url }) { visit ->
-                Entry(null, visit.title.ifBlank { visit.url }, detail = visit.url, onClick = {
+                SiteEntry(visit.url, visit.title.ifBlank { visit.url }, onClick = {
                     browser.load(visit.url)
                     onDismiss()
                 })

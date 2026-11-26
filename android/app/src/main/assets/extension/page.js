@@ -17,6 +17,10 @@
     "[class*='advert' i]", "[class*='sponsor' i]", "[class*='share' i]", "[class*='social' i]", "[class*='related' i]",
     "[class*='newsletter' i]", "[class*='comment' i]", "[class*='promo' i]", "[class*='cookie' i]", "[class*='popup' i]",
   ].join(", ");
+  const ICON_LINKS = "link[rel~='icon' i], link[rel~='apple-touch-icon' i]";
+  const WEB_ICON = /^https?:/;
+  const VECTOR_ICON = /\.svg($|[?#])/i;
+  const TOUCH_ICON_SIZE = 180;
   const KEPT_ATTRIBUTES = new Set(["href", "src", "srcset", "sizes", "alt", "title", "colspan", "rowspan", "datetime", "controls", "poster"]);
   const READER_STYLE = `
     :host { all: initial; position: fixed !important; inset: 0 !important; z-index: 2147483647 !important; display: block !important; }
@@ -170,6 +174,21 @@
         return;
     }
   });
+  const iconSize = (link) => {
+    const declared = Array.from(link.sizes, (size) => parseInt(size, 10) || 0);
+    const touch = link.rel.toLowerCase().includes("apple-touch-icon") ? TOUCH_ICON_SIZE : 0;
+    return Math.max(touch, ...declared);
+  };
+
+  const reportIcons = () => {
+    const urls = [...document.querySelectorAll(ICON_LINKS)]
+      .filter((link) => WEB_ICON.test(link.href) && !VECTOR_ICON.test(link.href) && link.type !== "image/svg+xml")
+      .sort((first, second) => iconSize(second) - iconSize(first))
+      .map((link) => link.href);
+    if (urls.length > 0) port.postMessage({ kind: "icons", page: location.href, urls });
+  };
+
   port.postMessage({ kind: "page" });
   document.addEventListener("DOMContentLoaded", measure);
+  document.addEventListener("DOMContentLoaded", reportIcons);
 })();

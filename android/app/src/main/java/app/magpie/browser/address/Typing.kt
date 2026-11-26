@@ -69,8 +69,9 @@ import app.magpie.browser.browser.Browser
 import app.magpie.browser.browser.Tab
 import app.magpie.browser.clipboard.Content
 import app.magpie.browser.clipboard.copy
+import app.magpie.browser.favicon.Favicon
+import app.magpie.browser.favicon.retention
 import app.magpie.browser.favorite.Grid
-import app.magpie.browser.theme.Letter
 
 private val FIELD_SHAPE = RoundedCornerShape(8.dp)
 private val CARD_SHAPE = RoundedCornerShape(12.dp)
@@ -151,7 +152,7 @@ private fun Current(tab: Tab, onEdit: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Letter(tab.url, 34.dp)
+        Favicon(tab.url, 34.dp, tab.retention)
         Column(Modifier.weight(1f)) {
             Text(tab.label, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Text(tab.url, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.5.sp, color = colors.onSurfaceVariant)

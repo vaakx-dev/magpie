@@ -7,9 +7,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import app.magpie.browser.favicon.retention
 import app.magpie.browser.media.Media
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
+import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
@@ -25,6 +27,8 @@ import org.mozilla.geckoview.WebResponse
 const val PROGRESS_DONE = 100
 
 private const val BLANK = "about:blank"
+
+private fun strings(array: JSONArray): List<String> = (0 until array.length()).map(array::getString)
 
 class Tab(val id: Long, space: Space, val session: GeckoSession, private val browser: Browser) :
     GeckoSession.NavigationDelegate,
@@ -191,7 +195,11 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     }
 
     override fun onPortMessage(message: Any, port: WebExtension.Port) {
-        port.postMessage(browser.page().put("zoom", zoom.factor))
+        val json = message as? JSONObject ?: return
+        when (json.optString("kind")) {
+            "page" -> port.postMessage(browser.page().put("zoom", zoom.factor))
+            "icons" -> browser.favicons.learn(json.getString("page"), strings(json.getJSONArray("urls")), retention)
+        }
     }
 
     override fun onDisconnect(port: WebExtension.Port) {

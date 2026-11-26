@@ -19,9 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.magpie.browser.browser.Browser
 import app.magpie.browser.theme.Entry
-import app.magpie.browser.theme.Letter
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Sheet
+import app.magpie.browser.theme.SiteEntry
 import app.magpie.browser.theme.Title
 
 @Composable
@@ -53,10 +53,9 @@ fun BookmarksSheet(browser: Browser, onDismiss: () -> Unit) {
         if (favorites.list.isEmpty()) Note("Bookmarks show up here and in Favorites on the tabs sheet.")
         LazyColumn(Modifier.heightIn(max = 480.dp)) {
             items(favorites.list, key = { it.url }) { favorite ->
-                Entry(
-                    null,
+                SiteEntry(
+                    favorite.url,
                     favorite.title,
-                    detail = favorite.url,
                     onClick = {
                         browser.load(favorite.url)
                         onDismiss()
