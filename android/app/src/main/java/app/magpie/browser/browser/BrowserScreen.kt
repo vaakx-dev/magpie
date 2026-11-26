@@ -1,5 +1,6 @@
 package app.magpie.browser.browser
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -47,6 +48,7 @@ import app.magpie.browser.address.AddressBar
 import app.magpie.browser.address.Swipe
 import app.magpie.browser.address.SwipeHint
 import app.magpie.browser.address.Typing
+import app.magpie.browser.context.ContextMenu
 import app.magpie.browser.download.DownloadBanner
 import app.magpie.browser.download.DownloadsSheet
 import app.magpie.browser.favorite.BookmarksSheet
@@ -54,6 +56,9 @@ import app.magpie.browser.find.FindBar
 import app.magpie.browser.history.HistorySheet
 import app.magpie.browser.menu.MenuPopup
 import app.magpie.browser.password.PasswordSheet
+import app.magpie.browser.permission.SitePrompt
+import app.magpie.browser.permission.SystemPrompt
+import app.magpie.browser.prompt.PromptView
 import app.magpie.browser.settings.SettingsScreen
 import app.magpie.browser.update.UpdateBanner
 import org.mozilla.geckoview.GeckoView
@@ -88,6 +93,7 @@ fun BrowserScreen(browser: Browser) {
         Box(Modifier.weight(1f).fillMaxWidth().then(page).onGloballyPositioned { hero.page = it.bounds() }) {
             val pullable = panel == null && !hero.shown && !fullScreen && tab?.blank == false
             tab?.let { Page(it, pullable, onView = { created -> hero.view = created }) }
+            if (tab?.crashed == true) Crashed(tab)
             if (!fullScreen) {
                 if (tab?.blank != false) Welcome()
                 Progress(tab?.progress ?: PROGRESS_DONE)
@@ -125,6 +131,15 @@ fun BrowserScreen(browser: Browser) {
         Panel.Passwords -> PasswordSheet(browser, onDismiss = close)
         Panel.Menu, Panel.Find, Panel.Settings, null -> Unit
     }
+    tab?.let { Asks(browser, it) }
+}
+
+@Composable
+private fun Asks(browser: Browser, tab: Tab) {
+    tab.prompts.current?.let { PromptView(it, site = Uri.parse(tab.url).host ?: "This page") }
+    tab.permissions.site?.let { SitePrompt(it) }
+    tab.permissions.system?.let { SystemPrompt(it) }
+    tab.held?.let { ContextMenu(browser, tab, it) }
 }
 
 @Composable
@@ -137,10 +152,10 @@ private fun Page(tab: Tab, pullable: Boolean, onView: (GeckoView?) -> Unit) {
             layout.isEnabled = pullable
             layout.paint(circle, spinner)
             layout.reloadOnPull(tab.session)
-            layout.show(tab.session)
+            if (tab.crashed) layout.hide() else layout.show(tab.session)
         },
         onRelease = {
-            it.page.releaseSession()
+            it.hide()
             onView(null)
         },
         modifier = Modifier.fillMaxSize(),

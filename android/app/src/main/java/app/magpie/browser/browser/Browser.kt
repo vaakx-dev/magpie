@@ -9,11 +9,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import app.magpie.browser.address.resolve
 import app.magpie.browser.download.Downloads
+import app.magpie.browser.external.Apps
 import app.magpie.browser.favicon.Favicons
 import app.magpie.browser.favorite.Favorites
 import app.magpie.browser.history.History
 import app.magpie.browser.media.Playback
 import app.magpie.browser.password.Vault
+import app.magpie.browser.permission.Permissions
 import app.magpie.browser.privacy.Filter
 import app.magpie.browser.settings.Settings
 import app.magpie.browser.space.Profile
@@ -46,6 +48,8 @@ class Browser(private val context: Context) {
     val downloads = Downloads(context, scope)
     val favicons = Favicons(context, scope)
     val vault = Vault()
+    val permissions = Permissions(preferences)
+    val apps = Apps(context)
     val engine = Engine(context, settings, scope)
     val updates = Updates(context, scope, settings)
 

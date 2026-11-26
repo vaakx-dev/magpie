@@ -68,6 +68,10 @@ class PageLayout(context: Context) : SwipeRefreshLayout(context) {
         page.setSession(session)
     }
 
+    fun hide() {
+        page.releaseSession()
+    }
+
     fun reloadOnPull(session: GeckoSession) = setOnRefreshListener {
         session.reload()
         isRefreshing = false

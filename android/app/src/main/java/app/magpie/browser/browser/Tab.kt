@@ -7,8 +7,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
+import app.magpie.browser.context.image
+import app.magpie.browser.external.fallback
+import app.magpie.browser.external.leavesBrowser
 import app.magpie.browser.favicon.retention
 import app.magpie.browser.media.Media
+import app.magpie.browser.permission.Requests
+import app.magpie.browser.prompt.Prompts
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import org.json.JSONArray
@@ -16,6 +21,7 @@ import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSession.ContentDelegate.ContextElement
 import org.mozilla.geckoview.GeckoSession.NavigationDelegate.LoadRequest
 import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
 import org.mozilla.geckoview.GeckoSession.ProgressDelegate.SecurityInformation
@@ -52,17 +58,23 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     var media by mutableStateOf<Media?>(null); private set
     var fullScreen by mutableStateOf(false); private set
     var desktop by mutableStateOf(false); private set
+    var held by mutableStateOf<ContextElement?>(null); private set
+    var crashed by mutableStateOf(false); private set
     private var portraitVideo by mutableStateOf(false)
     private var port: WebExtension.Port? = null
     private var asleep = false
 
     private val remembered = space.profile != Profile.Private
+    val prompts = Prompts()
+    val permissions = Requests(browser.permissions.takeIf { remembered })
 
     init {
         session.navigationDelegate = this
         session.progressDelegate = this
         session.contentDelegate = this
         session.mediaSessionDelegate = this
+        session.promptDelegate = prompts
+        session.permissionDelegate = permissions
         if (remembered) session.historyDelegate = this
     }
 
@@ -120,8 +132,24 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         send(JSONObject().put("kind", "zoom").put("zoom", zoom.factor))
     }
 
+    fun clearHeld() {
+        held = null
+    }
+
+    fun recover() {
+        crashed = false
+        session.open(browser.engine.runtime)
+        session.loadUri(url)
+    }
+
     private fun send(message: JSONObject) {
         port?.postMessage(message)
+    }
+
+    private fun leave(uri: String) {
+        if (browser.apps.open(uri)) return
+        val web = fallback(uri) ?: return browser.apps.unavailable()
+        session.loadUri(browser.clean(web))
     }
 
     private fun replace(address: String) {
@@ -147,6 +175,10 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     }
 
     override fun onLoadRequest(session: GeckoSession, request: LoadRequest): GeckoResult<AllowOrDeny> {
+        if (leavesBrowser(request.uri)) {
+            leave(request.uri)
+            return GeckoResult.deny()
+        }
         val cleaned = browser.clean(request.uri)
         if (cleaned == request.uri) return GeckoResult.allow()
         session.loadUri(cleaned)
@@ -173,6 +205,18 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
 
     override fun onFullScreen(session: GeckoSession, fullScreen: Boolean) {
         this.fullScreen = fullScreen
+    }
+
+    override fun onContextMenu(session: GeckoSession, screenX: Int, screenY: Int, element: ContextElement) {
+        if (element.linkUri != null || element.image() != null) held = element
+    }
+
+    override fun onCrash(session: GeckoSession) {
+        crashed = true
+    }
+
+    override fun onKill(session: GeckoSession) {
+        crashed = true
     }
 
     override fun onExternalResponse(session: GeckoSession, response: WebResponse) = browser.downloads.save(response)
