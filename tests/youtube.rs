@@ -13,7 +13,7 @@ fn responses_seen_on(hostname: &str) -> Value {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let output = Command::new("node")
         .arg(root.join("tests/youtube/harness.cjs"))
-        .arg(root.join("src/webview/youtube.js"))
+        .arg(root.join("crates/magpie-engine/src/blocker/youtube.js"))
         .arg(hostname)
         .output()
         .expect("node runs the YouTube script harness");

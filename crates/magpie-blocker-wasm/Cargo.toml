@@ -9,7 +9,7 @@ authors.workspace = true
 
 [lib]
 name = "magpie_blocker"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 adblock = { workspace = true }

@@ -9,7 +9,7 @@ authors.workspace = true
 
 [workspace]
 members = ["crates/magpie-engine", "crates/magpie-android", "crates/magpie-blocker-wasm"]
-default-members = [".", "crates/magpie-engine"]
+default-members = [".", "crates/magpie-engine", "crates/magpie-blocker-wasm"]
 
 [workspace.package]
 repository = "https://github.com/vaakx-dev/magpie"

@@ -1,12 +1,19 @@
 use std::cell::RefCell;
 
-use adblock::{Engine, request::Request};
+use adblock::{Engine, FilterSet, lists::ParseOptions, request::Request};
 
 const FIELD_SEPARATOR: char = '\n';
+const BASELINE: &str = include_str!("../../magpie-engine/src/blocker/baseline.txt");
 
 thread_local! {
-    static ENGINE: RefCell<Engine> = RefCell::new(Engine::default());
+    static ENGINE: RefCell<Engine> = RefCell::new(baseline());
     static EXCHANGE: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+}
+
+fn baseline() -> Engine {
+    let mut filters = FilterSet::new(false);
+    filters.add_filter_list(BASELINE.to_owned(), ParseOptions::default());
+    Engine::new_with_filter_set(filters)
 }
 
 fn blocks(fields: &str) -> bool {

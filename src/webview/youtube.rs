@@ -1,11 +1,10 @@
 use std::{cell::RefCell, rc::Rc};
 
+use magpie_engine::blocker::YOUTUBE_SCRIPT;
 use webview2_com::{Microsoft::Web::WebView2::Win32::*, NavigationStartingEventHandler};
 use windows::core::Result;
 
 use super::{runtime::Runtime, script, signal::address};
-
-const SCRIPT: &str = include_str!("youtube.js");
 
 #[derive(Default)]
 enum Script {
@@ -39,7 +38,7 @@ fn added(
 fn add(webview: &ICoreWebView2, injection: &SharedInjection) -> Result<()> {
     let owner = webview.clone();
     let adding = Rc::clone(injection);
-    script::add(webview, SCRIPT, move |result| {
+    script::add(webview, YOUTUBE_SCRIPT, move |result| {
         added(&owner, &adding, result)
     })
 }

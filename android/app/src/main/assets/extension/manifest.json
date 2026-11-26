@@ -9,6 +9,7 @@
     "nativeMessaging",
     "nativeMessagingFromContent",
     "geckoViewAddons",
+    "scripting",
     "webRequest",
     "webRequestBlocking",
     "webNavigation",
