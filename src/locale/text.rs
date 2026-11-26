@@ -192,7 +192,6 @@ pub enum Text {
     Private,
     WelcomeHint,
     ClosedUnexpectedly,
-    RestorePreviousSession,
     StartFresh,
     UpdateAvailable,
     SeeUpdate,
@@ -1699,14 +1698,6 @@ impl Text {
                 "Magpie wurde unerwartet beendet",
                 "Magpie が予期せず終了しました",
                 "Magpie 意外关闭",
-            ],
-            Self::RestorePreviousSession => [
-                "Restore previous session",
-                "Restaurar la sesión anterior",
-                "Restaurer la session précédente",
-                "Vorherige Sitzung wiederherstellen",
-                "前回のセッションを復元",
-                "恢复上次会话",
             ],
             Self::StartFresh => [
                 "Start fresh",

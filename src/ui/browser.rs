@@ -24,6 +24,7 @@ use super::{
     mini_player::Player,
     password::{AfterUnlock, Look, Offer, Options as SheetOptions, Outcome as SheetOutcome, Sheet},
     peek::Peek,
+    recovery::Notice as RecoveryNotice,
     resize::Handle,
     session::Pane,
     sidebar::Density,
@@ -110,7 +111,7 @@ pub struct Browser {
     slide: Slide,
     pub(super) player: Player,
     pub(super) fullscreen: Fullscreen,
-    pub(super) recovery_offered: bool,
+    pub(super) recovery: Option<RecoveryNotice>,
     pub(super) focus: FocusHandle,
     pub(super) leaving: Option<Task<()>>,
     _sweeper: Task<()>,
@@ -194,7 +195,7 @@ impl Browser {
             slide,
             player: Player::default(),
             fullscreen: Fullscreen::default(),
-            recovery_offered: false,
+            recovery: None,
             focus: cx.focus_handle(),
             leaving: None,
             _sweeper: every(SWEEP_INTERVAL, Browser::sweep, cx),
@@ -217,7 +218,7 @@ impl Browser {
         let general = self.settings().general.clone();
         match (general.startup, previous_exit) {
             (Startup::Restore, Exit::Clean) => self.resume(cx),
-            (Startup::Restore, Exit::Unexpected) => self.offer_recovery(cx),
+            (Startup::Restore, Exit::Unexpected) => self.recover(cx),
             (Startup::HomePage, _) => {
                 self.archive_today(cx);
                 let home = destination(&general.home_page, &general.search).url();
@@ -761,6 +762,7 @@ impl Browser {
             None => row.flex_1().min_w_0(),
         };
         div()
+            .relative()
             .flex_1()
             .min_h_0()
             .flex()
@@ -768,6 +770,7 @@ impl Browser {
                 anchor.justify_end()
             })
             .child(row)
+            .child(self.banners(cx))
     }
 
     fn viewport(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -787,9 +790,6 @@ impl Browser {
             .when(self.slide.moving(), |viewport| viewport.overflow_hidden())
             .flex()
             .flex_col()
-            .gap(px(INSET_PX))
-            .children(self.recovery_banner(cx))
-            .children(self.update_banner(cx))
             .child(self.pane_row(window, cx))
     }
 

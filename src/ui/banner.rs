@@ -1,10 +1,14 @@
-use gpui::{ClickEvent, Context, Div, Stateful, Window, div, prelude::*, px, rgba};
+use gpui::{App, ClickEvent, Context, Div, Stateful, Window, prelude::*, px, rgba};
 
-use super::{browser::Browser, surface::tint};
+use super::{
+    browser::Browser,
+    icon::Icon,
+    password::{Emphasis, FLOAT_CORNER_PX},
+};
 use crate::locale::Text;
 
-const BANNER_HEIGHT_PX: f32 = 40.0;
-const BANNER_TINT_ALPHA: u8 = 0x26;
+const TOP_PX: f32 = 12.0;
+const GAP_PX: f32 = 8.0;
 
 pub(super) type Choose = fn(&mut Browser, &mut Context<Browser>);
 
@@ -16,19 +20,20 @@ impl Browser {
         choose: Choose,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
-        let colors = self.colors();
-        div()
-            .id(id)
-            .px_3()
-            .py_1()
-            .rounded_md()
-            .bg(rgba(colors.field))
-            .hover(|button| button.bg(rgba(colors.field_hover)))
-            .cursor_pointer()
-            .child(self.text(text))
-            .on_click(
-                cx.listener(move |browser, _: &ClickEvent, _: &mut Window, cx| choose(browser, cx)),
-            )
+        self.look()
+            .button(id, self.text(text), Emphasis::Secondary)
+            .on_click(chosen(choose, cx))
+    }
+
+    pub(super) fn banner_close(
+        &self,
+        id: &'static str,
+        choose: Choose,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let look = self.look();
+        look.icon_button(id, Icon::X.tinted(rgba(look.colors.muted)))
+            .on_click(chosen(choose, cx))
     }
 
     pub(super) fn banner(
@@ -36,16 +41,37 @@ impl Browser {
         message: impl IntoElement,
         buttons: impl IntoIterator<Item = Stateful<Div>>,
     ) -> Div {
-        div()
-            .flex_none()
-            .h(px(BANNER_HEIGHT_PX))
-            .px_3()
-            .flex()
+        self.look()
+            .float()
+            .flex_row()
             .items_center()
             .gap_2()
-            .rounded_lg()
-            .bg(tint(self.colors().text, BANNER_TINT_ALPHA))
-            .child(div().flex_1().child(message))
+            .py_1p5()
+            .pl_4()
+            .pr_1p5()
+            .child(message)
             .children(buttons)
     }
+
+    pub(super) fn banners(&self, cx: &mut Context<Self>) -> Div {
+        self.cutouts
+            .see_through(FLOAT_CORNER_PX)
+            .absolute()
+            .top(px(TOP_PX))
+            .left_0()
+            .right_0()
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(GAP_PX))
+            .children(self.recovery_banner(cx))
+            .children(self.update_banner(cx))
+    }
+}
+
+fn chosen(
+    choose: Choose,
+    cx: &mut Context<Browser>,
+) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
+    cx.listener(move |browser, _: &ClickEvent, _: &mut Window, cx| choose(browser, cx))
 }
