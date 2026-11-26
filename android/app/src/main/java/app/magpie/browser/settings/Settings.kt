@@ -8,6 +8,8 @@ import androidx.core.content.edit
 import app.magpie.browser.dark.ForceDark
 import app.magpie.browser.focus.Distraction
 import app.magpie.browser.focus.Focus
+import app.magpie.browser.onboarding.ONBOARDING_DONE
+import app.magpie.browser.onboarding.onboarded
 import app.magpie.browser.password.Service
 import app.magpie.browser.privacy.Privacy
 import app.magpie.browser.site.Site
@@ -108,6 +110,12 @@ private fun SharedPreferences.Editor.put(key: String, preference: Preference) {
 class Settings(private val preferences: SharedPreferences) {
     private val properties = mutableListOf<Stored<*>>()
 
+    var onboardingDone: Boolean by stored({ onboarded(preferences.all) }) { putBoolean(ONBOARDING_DONE, it) }
+
+    init {
+        keepOnboardingDecision()
+    }
+
     var theme: ThemeMode by stored({ enumValue(THEME, ThemeMode.System) }) { putString(THEME, it.name) }
 
     var menuSide: MenuSide by stored({ enumValue(MENU_SIDE, MenuSide.Right) }) { putString(MENU_SIDE, it.name) }
@@ -161,6 +169,10 @@ class Settings(private val preferences: SharedPreferences) {
             saved.filterKeys(KEYS::contains).forEach { (key, preference) -> put(key, preference) }
         }
         properties.forEach(Stored<*>::reload)
+    }
+
+    private fun keepOnboardingDecision() {
+        if (!preferences.contains(ONBOARDING_DONE)) preferences.edit { putBoolean(ONBOARDING_DONE, onboardingDone) }
     }
 
     private fun <T> stored(read: () -> T, write: SharedPreferences.Editor.(T) -> Unit): ReadWriteProperty<Any?, T> =

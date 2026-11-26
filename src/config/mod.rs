@@ -76,6 +76,7 @@ pub struct Settings {
     pub reader: reader::Config,
     pub focus: Focus,
     pub updates: Updates,
+    pub onboarding_done: Switch,
 }
 
 pub struct Config {
@@ -146,9 +147,16 @@ fn folder_text(folder: Option<&Path>) -> String {
 }
 
 impl Settings {
+    fn returning() -> Self {
+        Self {
+            onboarding_done: Switch::On,
+            ..Self::default()
+        }
+    }
+
     pub fn parse(text: &str) -> Self {
         text.lines().filter_map(|line| line.split_once('=')).fold(
-            Self::default(),
+            Self::returning(),
             |mut settings, (key, value)| {
                 settings.set(key.trim(), value.trim());
                 settings
@@ -177,6 +185,7 @@ impl Settings {
             reader,
             focus,
             updates,
+            onboarding_done,
         } = self;
         match key {
             "theme" => choose(theme, value),
@@ -220,6 +229,7 @@ impl Settings {
             "check_for_updates" => choose(&mut updates.automatic, value),
             "update_channel" => choose(&mut updates.channel, value),
             "update_repo" => updates.repo = Repo::parse(value),
+            "onboarding_done" => choose(onboarding_done, value),
             _ => choose_focus(focus, key, value),
         }
     }
@@ -245,6 +255,7 @@ impl Settings {
             reader,
             focus,
             updates,
+            onboarding_done,
         } = self;
         [
             ("theme", theme.label().into_owned()),
@@ -312,6 +323,7 @@ impl Settings {
                     .map(Repo::to_string)
                     .unwrap_or_default(),
             ),
+            ("onboarding_done", onboarding_done.label().into_owned()),
         ]
         .into_iter()
         .chain(focus_pairs(focus))
@@ -334,14 +346,17 @@ fn remove_legacy(folder: &Path) -> io::Result<()> {
 impl Config {
     pub fn load(folder: &Path) -> Self {
         let read = |name: &&str| fs::read_to_string(folder.join(name)).ok();
-        let settings = [FILE, LEGACY_FILE]
-            .iter()
-            .find_map(read)
-            .unwrap_or_default();
         let sponsorblock = read(&SPONSORBLOCK_FILE).unwrap_or_default();
+        let settings = match [FILE, LEGACY_FILE].iter().find_map(read) {
+            Some(text) => Settings::parse(&text),
+            None => Settings::default(),
+        };
         Self {
             folder: folder.to_owned(),
-            settings: Settings::parse_with_sponsorblock(&settings, &sponsorblock),
+            settings: Settings {
+                sponsorblock: sponsorblock::Config::parse(&sponsorblock),
+                ..settings
+            },
         }
     }
 

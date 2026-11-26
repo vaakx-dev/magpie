@@ -375,7 +375,12 @@ impl Browser {
         .detach();
     }
 
-    fn merge_import(&mut self, label: &str, imported: Imported, cx: &mut Context<Self>) -> Reply {
+    pub(super) fn merge_import(
+        &mut self,
+        label: &str,
+        imported: Imported,
+        cx: &mut Context<Self>,
+    ) -> Reply {
         let mut report = imported.apply(label, &mut self.store, Epoch::now());
         if let Err(error) = self.store.save() {
             report.warnings.push(format!("Saving: {error}"));

@@ -21,6 +21,7 @@ mod internal;
 mod marquee;
 mod menu;
 pub mod mini_player;
+mod onboarding;
 mod password;
 mod peek;
 mod permission;

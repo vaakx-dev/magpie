@@ -183,7 +183,7 @@ fn hand_edited_settings_keep_valid_lines_and_default_the_rest() {
     let settings = Settings::parse(text);
 
     assert_eq!(settings.theme, Theme::Dark);
-    assert_eq!(Settings::parse("accent = teal\n"), Settings::default());
+    assert_eq!(Settings::parse("accent = teal\n"), Settings::parse(""));
     assert_eq!(settings.layout.top_bar, Switch::On);
     assert_eq!(settings.layout.sidebar, Sidebar::Shown);
     assert_eq!(settings.layout.sidebar_side, Side::Right);

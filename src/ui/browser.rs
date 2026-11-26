@@ -22,6 +22,7 @@ use super::{
     fullscreen::Fullscreen,
     menu::Layer,
     mini_player::Player,
+    onboarding::Tour,
     password::{AfterUnlock, Look, Offer, Options as SheetOptions, Outcome as SheetOutcome, Sheet},
     peek::Peek,
     recovery::Notice as RecoveryNotice,
@@ -112,6 +113,7 @@ pub struct Browser {
     pub(super) player: Player,
     pub(super) fullscreen: Fullscreen,
     pub(super) recovery: Option<RecoveryNotice>,
+    pub(super) onboarding: Option<Tour>,
     pub(super) focus: FocusHandle,
     pub(super) leaving: Option<Task<()>>,
     _sweeper: Task<()>,
@@ -196,6 +198,7 @@ impl Browser {
             player: Player::default(),
             fullscreen: Fullscreen::default(),
             recovery: None,
+            onboarding: None,
             focus: cx.focus_handle(),
             leaving: None,
             _sweeper: every(SWEEP_INTERVAL, Browser::sweep, cx),
@@ -231,6 +234,7 @@ impl Browser {
             (Startup::NewTab, _) => self.archive_today(cx),
         }
         self.open_addresses(addresses, cx);
+        self.offer_onboarding(cx);
     }
 
     pub(super) fn open_addresses(&mut self, addresses: &[String], cx: &mut Context<Self>) {
@@ -317,7 +321,7 @@ impl Browser {
     }
 
     fn overlaid(&self) -> bool {
-        self.palette.is_some() || self.reveal.is_some()
+        self.palette.is_some() || self.reveal.is_some() || self.onboarding.is_some()
     }
 
     fn floating(&self) -> bool {
@@ -1062,5 +1066,6 @@ impl Render for Browser {
             .children(self.popover_overlay(cx))
             .children(self.palette_overlay(cx))
             .children(self.resize_overlay(cx))
+            .children(self.onboarding_overlay(cx))
     }
 }

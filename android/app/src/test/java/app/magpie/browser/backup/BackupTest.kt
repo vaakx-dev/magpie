@@ -13,6 +13,7 @@ class BackupTest {
             "theme" to Preference.Text("Dark"),
             "custom_search" to Preference.Text("https://search.example.org/?q=%s"),
             "ad_block" to Preference.Switch(false),
+            "paused_sites" to Preference.Texts(setOf("news.example", "shop.example")),
         ),
         spaces = listOf(
             Space("personal", "Personal", Profile.Named("personal", "Personal")),

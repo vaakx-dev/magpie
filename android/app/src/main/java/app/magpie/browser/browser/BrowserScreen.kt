@@ -56,6 +56,7 @@ import app.magpie.browser.favorite.BookmarksSheet
 import app.magpie.browser.find.FindBar
 import app.magpie.browser.history.HistorySheet
 import app.magpie.browser.menu.MenuPopup
+import app.magpie.browser.onboarding.Onboarding
 import app.magpie.browser.password.PasswordSheet
 import app.magpie.browser.permission.SitePrompt
 import app.magpie.browser.permission.SystemPrompt
@@ -76,6 +77,7 @@ private fun Modifier.aboveKeyboard(chrome: Dp) =
 
 @Composable
 fun BrowserScreen(browser: Browser) {
+    if (!browser.settings.onboardingDone) return Onboarding(browser)
     var panel by remember { mutableStateOf<Panel?>(null) }
     val close = { panel = null }
     val tab = browser.tab

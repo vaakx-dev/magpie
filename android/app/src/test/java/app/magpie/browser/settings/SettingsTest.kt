@@ -20,4 +20,15 @@ class SettingsTest {
         Settings(preferences).privacy = chosen
         assertEquals(chosen, Settings(preferences).privacy)
     }
+
+    @Test
+    fun restoringABackupReloadsPrivacyAndPerSiteChoices() {
+        val source = Settings(MemoryPreferences())
+        source.privacy = Privacy(httpsOnly = true, clearOnExit = true).toggle(Site("news.example"))
+        source.forceDark = source.forceDark.toggle(Site("docs.example"))
+        val target = Settings(MemoryPreferences())
+        target.restore(source.saved())
+        assertEquals(source.privacy, target.privacy)
+        assertEquals(source.forceDark, target.forceDark)
+    }
 }
