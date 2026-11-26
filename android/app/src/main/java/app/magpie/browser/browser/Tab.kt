@@ -271,7 +271,7 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     override fun onPortMessage(message: Any, port: WebExtension.Port) {
         val json = message as? JSONObject ?: return
         when (json.optString("kind")) {
-            "page" -> port.postMessage(browser.page().put("zoom", zoom.factor))
+            "page" -> port.postMessage(browser.page(json.getString("url")).put("zoom", zoom.factor))
             "icons" -> browser.favicons.learn(json.getString("page"), strings(json.getJSONArray("urls")), retention)
         }
     }

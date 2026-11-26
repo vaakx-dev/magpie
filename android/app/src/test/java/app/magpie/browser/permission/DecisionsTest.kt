@@ -37,6 +37,15 @@ class DecisionsTest {
     }
 
     @Test
+    fun resettingASiteAsksAgainAndLeavesOtherSitesAlone() {
+        val saved = Decisions().with(site, media, Decision.Allow).with(other, setOf(Kind.Location), Decision.Block)
+        val reset = reloaded(saved.without(site))
+        assertEquals(listOf(other), reset.origins)
+        assertNull(reset.decision(site, media))
+        assertEquals(Decision.Block, reset.decision(other, setOf(Kind.Location)))
+    }
+
+    @Test
     fun startsEmptyAndSkipsUnknownStoredEntries() {
         assertNull(Decisions.stored(null).decision(site, setOf(Kind.Camera)))
         val stored = Decisions.stored("""{"https://meet.example.com":{"Camera":"Allow","Teleport":"Allow","Microphone":"Maybe"}}""")

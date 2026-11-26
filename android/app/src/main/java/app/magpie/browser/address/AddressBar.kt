@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -126,7 +127,17 @@ private fun TabsButton(browser: Browser, hero: Hero) {
 }
 
 @Composable
-private fun UrlField(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> Unit, modifier: Modifier) {
+private fun SecurityButton(icon: ImageVector, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier.fillMaxHeight().clickable(onClickLabel = description, onClick = onClick).padding(start = 12.dp, end = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, description, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun UrlField(browser: Browser, swipe: Swipe, hero: Hero, actions: Actions, modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
     val tab = page(browser.tab)
     val private = browser.space.profile == Profile.Private
@@ -134,7 +145,7 @@ private fun UrlField(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> U
     val tabThresholdPx = with(LocalDensity.current) { SWIPE_TAB_DISTANCE.toPx() }
     val gesture = rememberUpdatedState(
         Gesture(
-            onTap = onType,
+            onTap = actions.onType,
             onMove = { total ->
                 swipe.move(total)
                 if (swipe.axis == Axis.Up) hero.pull(total)
@@ -152,12 +163,8 @@ private fun UrlField(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> U
         modifier.height(FIELD_HEIGHT).clip(SHAPE).background(colors.surfaceVariant).padding(end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier.weight(1f).fillMaxHeight().gesture(gesture).padding(start = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(icon, description, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+        SecurityButton(icon, description, onClick = if (tab == null) actions.onType else actions.onSite)
+        Row(Modifier.weight(1f).fillMaxHeight().gesture(gesture), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 tab?.let { host(it.url) } ?: PLACEHOLDER,
                 color = if (tab == null) colors.onSurfaceVariant else colors.onSurface,
@@ -171,8 +178,10 @@ private fun UrlField(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> U
     }
 }
 
+class Actions(val onType: () -> Unit, val onSite: () -> Unit, val onMenu: () -> Unit)
+
 @Composable
-fun AddressBar(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> Unit, onMenu: () -> Unit, menu: @Composable () -> Unit) {
+fun AddressBar(browser: Browser, swipe: Swipe, hero: Hero, actions: Actions, menu: @Composable () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth()
@@ -185,14 +194,14 @@ fun AddressBar(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> Unit, o
     ) {
         when (browser.settings.menuSide) {
             MenuSide.Left -> {
-                MenuButton(onMenu, menu)
+                MenuButton(actions.onMenu, menu)
                 TabsButton(browser, hero)
-                UrlField(browser, swipe, hero, onType, Modifier.weight(1f))
+                UrlField(browser, swipe, hero, actions, Modifier.weight(1f))
             }
             MenuSide.Right -> {
-                UrlField(browser, swipe, hero, onType, Modifier.weight(1f))
+                UrlField(browser, swipe, hero, actions, Modifier.weight(1f))
                 TabsButton(browser, hero)
-                MenuButton(onMenu, menu)
+                MenuButton(actions.onMenu, menu)
             }
         }
     }

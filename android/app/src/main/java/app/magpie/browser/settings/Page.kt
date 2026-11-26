@@ -144,8 +144,8 @@ private fun Addons(settings: Settings) {
                 SwitchItem(
                     Icons.Outlined.DarkMode,
                     "Force dark mode",
-                    checked = settings.forceDark,
-                    onChange = { settings.forceDark = it },
+                    checked = settings.forceDark.enabled,
+                    onChange = { settings.forceDark = settings.forceDark.copy(enabled = it) },
                     detail = "Darkens pages that have no dark theme",
                 )
             },

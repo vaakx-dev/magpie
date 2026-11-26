@@ -7,18 +7,21 @@ import app.magpie.browser.privacy.Filter
 import app.magpie.browser.privacy.Privacy
 import app.magpie.browser.settings.Settings
 import app.magpie.browser.settings.ThemeMode
+import app.magpie.browser.site.Site
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
+import org.mozilla.geckoview.StorageController
 import org.mozilla.geckoview.WebExtension
 import java.io.File
 import java.util.Base64
@@ -50,8 +53,14 @@ private fun contentBlocking(privacy: Privacy): ContentBlocking.Settings =
         .safeBrowsing(ContentBlocking.SafeBrowsing.DEFAULT)
         .build()
 
+private fun insecureConnections(privacy: Privacy): Int =
+    if (privacy.httpsOnly) GeckoRuntimeSettings.HTTPS_ONLY else GeckoRuntimeSettings.ALLOW_ALL
+
 private fun blockingMessage(privacy: Privacy): JSONObject =
-    JSONObject().put("kind", "blocking").put("enabled", privacy.adBlock)
+    JSONObject()
+        .put("kind", "blocking")
+        .put("enabled", privacy.adBlock)
+        .put("paused", JSONArray(privacy.pausedSites.map(Site::name)))
 
 private fun focusMessage(focus: Focus): JSONObject =
     JSONObject().put("kind", "focus").put("script", focus.script()).put("update", focus.update())
@@ -74,6 +83,8 @@ class Engine(context: Context, private val settings: Settings, private val scope
         GeckoRuntimeSettings.Builder()
             .contentBlocking(contentBlocking(settings.privacy))
             .preferredColorScheme(COLOR_SCHEMES.getValue(settings.theme))
+            .allowInsecureConnections(insecureConnections(settings.privacy))
+            .globalPrivacyControlEnabled(settings.privacy.globalPrivacyControl)
             .build(),
     )
 
@@ -101,6 +112,9 @@ class Engine(context: Context, private val settings: Settings, private val scope
         runtime.settings.contentBlocking
             .setAntiTracking(antiTracking(privacy))
             .setEnhancedTrackingProtectionLevel(protectionLevel(privacy))
+        runtime.settings
+            .setAllowInsecureConnections(insecureConnections(privacy))
+            .setGlobalPrivacyControl(privacy.globalPrivacyControl)
         blocker?.postMessage(blockingMessage(privacy))
     }
 
@@ -114,6 +128,10 @@ class Engine(context: Context, private val settings: Settings, private val scope
 
     fun clear(profile: Profile.Named) {
         runtime.storageController.clearDataForSessionContext(profile.id)
+    }
+
+    fun clear(site: Site) {
+        runtime.storageController.clearDataFromHost(site.name, StorageController.ClearFlags.ALL)
     }
 
     private suspend fun sendSnapshot(load: (File) -> ByteArray?) {

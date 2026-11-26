@@ -18,6 +18,7 @@ import app.magpie.browser.password.Vault
 import app.magpie.browser.permission.Permissions
 import app.magpie.browser.privacy.Filter
 import app.magpie.browser.settings.Settings
+import app.magpie.browser.site.Site
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import app.magpie.browser.space.Spaces
@@ -70,6 +71,7 @@ class Browser(private val context: Context) {
 
     init {
         engine.install(::connect)
+        if (settings.privacy.clearOnExit) clearBrowsingData()
         restoreTabs()
         followTabs()
         followSettings()
@@ -118,7 +120,14 @@ class Browser(private val context: Context) {
         favicons.clear()
         downloads.clear()
         closed.clear()
+        permissions.clear()
         spaces.profiles.forEach(engine::clear)
+    }
+
+    fun toggleShield(tab: Tab, site: Site) {
+        settings.privacy = settings.privacy.toggle(site)
+        engine.protect(settings.privacy)
+        tab.session.reload()
     }
 
     fun switch(space: Space) {
@@ -152,8 +161,10 @@ class Browser(private val context: Context) {
         return reply
     }
 
-    fun page(): JSONObject =
-        JSONObject().put("kind", "page").put("dark", settings.forceDark).put("backgroundPlay", settings.backgroundPlay)
+    fun dark(url: String): Boolean = settings.forceDark.on(Site.of(url))
+
+    fun page(url: String): JSONObject =
+        JSONObject().put("kind", "page").put("dark", dark(url)).put("backgroundPlay", settings.backgroundPlay)
 
     fun background() {
         if (!settings.backgroundPlay) tabs.forEach { it.media?.controller?.pause() }
@@ -217,7 +228,7 @@ class Browser(private val context: Context) {
             }
         }
         scope.launch { snapshotFlow { settings.theme }.drop(1).collect(engine::follow) }
-        scope.launch { snapshotFlow { settings.forceDark }.drop(1).collect { dark -> tabs.forEach { it.darken(dark) } } }
+        scope.launch { snapshotFlow { settings.forceDark }.drop(1).collect { tabs.forEach { tab -> tab.darken(dark(tab.url)) } } }
         scope.launch { snapshotFlow { settings.focus }.drop(1).collect(engine::focus) }
         scope.launch { snapshotFlow { settings.backgroundPlay }.drop(1).collect { enabled -> tabs.forEach { it.playInBackground(enabled) } } }
         scope.launch {

@@ -24,8 +24,6 @@ import app.magpie.browser.prompt.Cancel
 import app.magpie.browser.prompt.Confirm
 import app.magpie.browser.prompt.Dialog
 
-private fun host(origin: String): String = origin.substringAfter("://")
-
 @Composable
 private fun Remember(checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
@@ -43,7 +41,7 @@ fun SitePrompt(request: Request) = key(request) {
     var remembered by remember { mutableStateOf(false) }
     val decide = { decision: Decision -> if (remembered) request.remember(decision) else request.answer(decision) }
     Dialog(
-        title = "Allow ${host(request.origin.value)} to ${purpose(request.kinds)}?",
+        title = "Allow ${request.origin.address} to ${purpose(request.kinds)}?",
         onDismiss = { request.answer(Decision.Block) },
         confirm = { Confirm("Allow") { decide(Decision.Allow) } },
         cancel = { Cancel("Block") { decide(Decision.Block) } },

@@ -10,6 +10,8 @@ private const val NO_PORT = -1
 value class Origin(val value: String) {
     val fileName: String get() = value.replace(UNSAFE_FILE_CHARACTERS, "_") + ".png"
 
+    val address: String get() = value.substringAfter("://")
+
     val guesses: List<String> get() = listOf("$value/apple-touch-icon.png", "$value/favicon.ico")
 
     companion object {

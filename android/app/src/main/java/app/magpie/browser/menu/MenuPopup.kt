@@ -123,8 +123,9 @@ private fun RootLayer(menu: Menu) {
     Item(Icons.Outlined.DesktopWindows, "Desktop Site", onClick = page?.let { { menu.run(it::toggleDesktop) } }) {
         page?.let { tab -> Toggle(tab.desktop, onChange = { menu.run(tab::toggleDesktop) }) }
     }
-    Item(Icons.Outlined.DarkMode, "Force Dark Mode", onClick = { settings.forceDark = !settings.forceDark }) {
-        Toggle(settings.forceDark, onChange = { settings.forceDark = it })
+    val forceDark = settings.forceDark
+    Item(Icons.Outlined.DarkMode, "Force Dark Mode", onClick = { settings.forceDark = forceDark.copy(enabled = !forceDark.enabled) }) {
+        Toggle(forceDark.enabled, onChange = { settings.forceDark = forceDark.copy(enabled = it) })
     }
     Divider()
     Item(Icons.Outlined.Settings, "Settings", onClick = { menu.show(Panel.Settings) })

@@ -188,7 +188,7 @@
     if (urls.length > 0) port.postMessage({ kind: "icons", page: location.href, urls });
   };
 
-  port.postMessage({ kind: "page" });
+  port.postMessage({ kind: "page", url: location.href });
   document.addEventListener("DOMContentLoaded", measure);
   document.addEventListener("DOMContentLoaded", reportIcons);
 })();

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.magpie.browser.R
+import app.magpie.browser.address.Actions
 import app.magpie.browser.address.AddressBar
 import app.magpie.browser.address.Swipe
 import app.magpie.browser.address.SwipeHint
@@ -60,10 +61,11 @@ import app.magpie.browser.permission.SitePrompt
 import app.magpie.browser.permission.SystemPrompt
 import app.magpie.browser.prompt.PromptView
 import app.magpie.browser.settings.SettingsScreen
+import app.magpie.browser.site.SiteSheet
 import app.magpie.browser.update.UpdateBanner
 import org.mozilla.geckoview.GeckoView
 
-enum class Panel { Typing, Menu, Find, History, Bookmarks, Downloads, Passwords, Settings }
+enum class Panel { Typing, Menu, Find, Site, History, Bookmarks, Downloads, Passwords, Settings }
 
 private const val WELCOME_ALPHA = 0.35f
 
@@ -109,7 +111,8 @@ fun BrowserScreen(browser: Browser) {
                         FindBar(tab, onClose = close)
                     }
                 else -> Box(Modifier.graphicsLayer { alpha = hero.barAlpha; translationY = hero.barShift }) {
-                    AddressBar(browser, swipe, hero, onType = { panel = Panel.Typing }, onMenu = { panel = Panel.Menu }) {
+                    val actions = Actions(onType = { panel = Panel.Typing }, onSite = { panel = Panel.Site }, onMenu = { panel = Panel.Menu })
+                    AddressBar(browser, swipe, hero, actions) {
                         if (panel == Panel.Menu) MenuPopup(browser, onOpen = { panel = it }, onDismiss = close)
                     }
                 }
@@ -125,6 +128,7 @@ fun BrowserScreen(browser: Browser) {
     if (!fullScreen) UndoToast(browser, Modifier.fillMaxSize().padding(bottom = chrome))
     when (panel) {
         Panel.Typing -> Typing(browser, onDismiss = close)
+        Panel.Site -> tab?.let { SiteSheet(browser, it, onDismiss = close) }
         Panel.History -> HistorySheet(browser, onDismiss = close)
         Panel.Bookmarks -> BookmarksSheet(browser, onDismiss = close)
         Panel.Downloads -> DownloadsSheet(browser.downloads, onDismiss = close)

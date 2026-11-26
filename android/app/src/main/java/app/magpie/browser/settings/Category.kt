@@ -22,7 +22,19 @@ enum class Category(val label: String, val icon: ImageVector, private val terms:
     Privacy(
         "Privacy & Security",
         Icons.Outlined.Shield,
-        listOf("Ad blocker", "Strip tracking from URLs", "Tracking protection", "Clear browsing data"),
+        listOf(
+            "Ad blocker",
+            "Strip tracking from URLs",
+            "Tracking protection",
+            "HTTPS-Only mode",
+            "Ask sites not to track you",
+            "Global Privacy Control",
+            "Do Not Track",
+            "Ad blocker paused on",
+            "Site permissions",
+            "Clear browsing data",
+            "Clear browsing data on exit",
+        ),
     ),
     Passwords("Passwords", Icons.Outlined.Key, listOf("Android System Autofill", "Change autofill service", "Built-in Bitwarden Vault", "Bitwarden", "Open vault")),
     Addons(
