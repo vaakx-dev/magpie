@@ -46,6 +46,7 @@ import app.magpie.browser.address.AddressBar
 import app.magpie.browser.address.Swipe
 import app.magpie.browser.address.SwipeHint
 import app.magpie.browser.address.Typing
+import app.magpie.browser.download.DownloadBanner
 import app.magpie.browser.download.DownloadsSheet
 import app.magpie.browser.favorite.BookmarksSheet
 import app.magpie.browser.find.FindBar
@@ -94,6 +95,7 @@ fun BrowserScreen(browser: Browser) {
         }
         if (!fullScreen) Column(Modifier.onSizeChanged { chrome = with(density) { it.height.toDp() } }) {
             UpdateBanner(browser.updates)
+            DownloadBanner(browser.downloads)
             when {
                 panel == Panel.Find && tab != null ->
                     Box(Modifier.background(MaterialTheme.colorScheme.surface).windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {

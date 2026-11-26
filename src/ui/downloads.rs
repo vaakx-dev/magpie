@@ -114,7 +114,7 @@ impl Downloads {
         }
     }
 
-    pub fn track(&mut self, transfer: Transfer, cx: &mut Context<Self>) {
+    pub fn track(&mut self, transfer: Transfer, cx: &mut Context<Self>) -> Option<DownloadId> {
         let changes = self.changes.clone();
         let watched = transfer.watch(move || {
             changes.unbounded_send(()).ok();
@@ -122,21 +122,24 @@ impl Downloads {
         if let Err(error) = watched {
             eprintln!("magpie: could not follow a download: {error}");
         }
-        self.insert(Source::Page(transfer), cx);
+        self.insert(Source::Page(transfer), cx)
     }
 
-    pub fn stream(&mut self, page_url: &str, target_dir: &Path, cx: &mut Context<Self>) {
+    pub fn stream(
+        &mut self,
+        page_url: &str,
+        target_dir: &Path,
+        cx: &mut Context<Self>,
+    ) -> Option<DownloadId> {
         let changes = self.changes.clone();
         let stream = download_stream(page_url, target_dir, move |_| {
             changes.unbounded_send(()).ok();
         });
-        self.insert(Source::Stream(stream), cx);
+        self.insert(Source::Stream(stream), cx)
     }
 
-    fn insert(&mut self, source: Source, cx: &mut Context<Self>) {
-        let Some(download) = source.snapshot() else {
-            return;
-        };
+    fn insert(&mut self, source: Source, cx: &mut Context<Self>) -> Option<DownloadId> {
+        let download = source.snapshot()?;
         let id = DownloadId(self.next_id);
         self.next_id += 1;
         self.entries.insert(
@@ -149,6 +152,7 @@ impl Downloads {
             },
         );
         cx.notify();
+        Some(id)
     }
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
@@ -183,8 +187,16 @@ impl Downloads {
             .map(|entry| entry.id)
     }
 
+    fn entry(&self, id: DownloadId) -> Option<&Entry> {
+        self.entries.iter().find(|entry| entry.id == id)
+    }
+
+    pub fn download(&self, id: DownloadId) -> Option<&Download> {
+        self.entry(id).map(|entry| &entry.download)
+    }
+
     pub fn control(&self, id: DownloadId, control: Control) {
-        if let Some(entry) = self.entries.iter().find(|entry| entry.id == id) {
+        if let Some(entry) = self.entry(id) {
             entry.source.control(control);
         }
     }

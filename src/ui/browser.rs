@@ -32,6 +32,7 @@ use super::{
     space,
     surface::{Colors, PANEL_CORNER_PX, colors},
     thumbnail::Thumbnails,
+    toast::Toast,
     toolbar,
     top_bar::TOP_BAR_HEIGHT_PX,
     window,
@@ -48,7 +49,7 @@ use crate::{
         session::{Section, Space, TabId},
     },
     system_theme,
-    webview::{self, Backdrop, Corners, Cutouts, Runtime, Visibility, WebView},
+    webview::{self, Backdrop, Corners, Cutouts, Runtime, Transfer, Visibility, WebView},
 };
 
 const PEEK_ZONE_PX: f32 = 10.0;
@@ -97,6 +98,7 @@ pub struct Browser {
     pub(super) address_edit: Option<toolbar::Edit>,
     pub(super) site_anchor: site::Anchor,
     pub(super) find: Option<find::Card>,
+    pub(super) toast: Option<Toast>,
     pub(super) cutouts: Cutouts,
     pub(super) downloads: Entity<Downloads>,
     pub(super) favicons: Entity<Favicons>,
@@ -161,6 +163,7 @@ impl Browser {
         let downloads = cx.new(Downloads::new);
         let download_updates = cx.observe(&downloads, |browser, _, cx| {
             browser.refresh_pages(&[Page::Downloads], cx);
+            browser.settle_toast(cx);
             cx.notify();
         });
         let mut browser = Self {
@@ -179,6 +182,7 @@ impl Browser {
             address_edit: None,
             site_anchor: site::Anchor::default(),
             find: None,
+            toast: None,
             cutouts: Cutouts::default(),
             downloads,
             favicons,
@@ -438,9 +442,17 @@ impl Browser {
         let Some(target) = folder.or_else(webview::default_downloads) else {
             return;
         };
-        self.downloads.update(cx, |downloads, cx| {
+        let id = self.downloads.update(cx, |downloads, cx| {
             downloads.stream(video.as_str(), &target, cx)
         });
+        self.announce(id, cx);
+    }
+
+    pub(super) fn track_download(&mut self, transfer: &Transfer, cx: &mut Context<Self>) {
+        let id = self
+            .downloads
+            .update(cx, |downloads, cx| downloads.track(transfer.clone(), cx));
+        self.announce(id, cx);
     }
 
     fn hide_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -987,6 +999,7 @@ impl Render for Browser {
             .capture_any_mouse_down(cx.listener(Self::release_page_focus))
             .on_any_mouse_down(cx.listener(Self::focus_unclaimed))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::close_login_dropdown))
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::click_away_from_toast))
             .on_mouse_down(
                 MouseButton::Navigate(NavigationDirection::Back),
                 cx.listener(|browser, _, window, cx| browser.back(&Back, window, cx)),
@@ -1039,6 +1052,7 @@ impl Render for Browser {
                 root.children(self.edge_reveal(window, cx))
                     .children(self.pill_reveal(window, cx))
             })
+            .children(self.download_toast(cx))
             .children(self.popover_overlay(cx))
             .children(self.palette_overlay(cx))
             .children(self.resize_overlay(cx))

@@ -1,4 +1,4 @@
-use gpui::{Div, MouseButton, Rgba, div, prelude::*, px, rgba};
+use gpui::{Div, ElementId, MouseButton, Rgba, Stateful, div, prelude::*, px, rgba};
 
 use crate::config::Scheme;
 
@@ -6,6 +6,7 @@ const PANEL_WIDTH_PX: f32 = 264.0;
 pub const PANEL_PADDING_PX: f32 = 4.0;
 pub const PANEL_CORNER_PX: f32 = 10.0;
 pub const ROW_HEIGHT_PX: f32 = 28.0;
+const BUTTON_HEIGHT_PX: f32 = 28.0;
 
 pub struct Colors {
     pub frame: u32,
@@ -89,6 +90,27 @@ pub fn surface(colors: &Colors) -> Div {
         .bg(rgba(colors.surface))
         .text_color(rgba(colors.text))
         .shadow_2xl()
+}
+
+pub fn text_button(
+    id: impl Into<ElementId>,
+    label: &'static str,
+    colors: &Colors,
+) -> Stateful<Div> {
+    let hover = colors.overlay;
+    div()
+        .id(id)
+        .h(px(BUTTON_HEIGHT_PX))
+        .px_3()
+        .flex()
+        .items_center()
+        .rounded_md()
+        .bg(rgba(colors.raised))
+        .border_1()
+        .border_color(rgba(colors.line))
+        .cursor_pointer()
+        .hover(move |button| button.bg(rgba(hover)))
+        .child(label)
 }
 
 pub fn panel(colors: &Colors) -> Div {

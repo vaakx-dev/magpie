@@ -34,6 +34,7 @@ mod surface;
 mod switch;
 mod tab;
 mod thumbnail;
+mod toast;
 mod toolbar;
 mod top_bar;
 mod update;

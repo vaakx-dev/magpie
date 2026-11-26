@@ -1,9 +1,9 @@
-use gpui::{Context, Div, ElementId, Entity, SharedString, Stateful, div, prelude::*, px, rgba};
+use gpui::{Context, Div, Entity, SharedString, Stateful, div, prelude::*, px, rgba};
 
 use super::{
     browser::Browser,
     icon::Icon,
-    surface::{Colors, PANEL_CORNER_PX, surface},
+    surface::{PANEL_CORNER_PX, surface, text_button},
     window,
 };
 use crate::{
@@ -16,7 +16,6 @@ use crate::{
 const WIDTH_PX: f32 = 360.0;
 const TOP_PX: f32 = 8.0;
 const LEFT_PX: f32 = 8.0;
-const BUTTON_HEIGHT_PX: f32 = 28.0;
 
 pub fn icon(kind: Kind) -> Icon {
     match kind {
@@ -27,23 +26,6 @@ pub fn icon(kind: Kind) -> Icon {
         Kind::Clipboard => Icon::Clipboard,
         Kind::Popups => Icon::AppWindow,
     }
-}
-
-fn answer_button(id: impl Into<ElementId>, label: &'static str, colors: &Colors) -> Stateful<Div> {
-    let hover = colors.overlay;
-    div()
-        .id(id)
-        .h(px(BUTTON_HEIGHT_PX))
-        .px_3()
-        .flex()
-        .items_center()
-        .rounded_md()
-        .bg(rgba(colors.raised))
-        .border_1()
-        .border_color(rgba(colors.line))
-        .cursor_pointer()
-        .hover(move |button| button.bg(rgba(hover)))
-        .child(label)
 }
 
 impl Browser {
@@ -82,14 +64,14 @@ impl Browser {
     ) -> Stateful<Div> {
         let view = view.clone();
         let id = SharedString::from(format!("permission-{}", state.name()));
-        answer_button(id, self.text(state.label()), self.colors()).on_click(
+        text_button(id, self.text(state.label()), self.colors()).on_click(
             cx.listener(move |browser, _, _, cx| browser.remember_answer(&view, state, cx)),
         )
     }
 
     fn allowing_once(&self, view: &Entity<WebView>, cx: &mut Context<Self>) -> Stateful<Div> {
         let view = view.clone();
-        answer_button(
+        text_button(
             "permission-allow-once",
             self.text(Text::AllowOnce),
             self.colors(),

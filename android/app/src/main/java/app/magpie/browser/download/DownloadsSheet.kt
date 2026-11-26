@@ -1,8 +1,5 @@
 package app.magpie.browser.download
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,21 +14,6 @@ import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Sheet
 import app.magpie.browser.theme.Title
 
-private val PROGRESS_LABELS = mapOf(
-    Progress.Running to "Downloading…",
-    Progress.Done to "Saved to Downloads",
-    Progress.Failed to "Failed",
-)
-
-private fun Download.view(context: Context) {
-    val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    try {
-        context.startActivity(intent)
-    } catch (missing: ActivityNotFoundException) {
-        context.startActivity(Intent.createChooser(intent, name))
-    }
-}
-
 @Composable
 fun DownloadsSheet(downloads: Downloads, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -43,9 +25,9 @@ fun DownloadsSheet(downloads: Downloads, onDismiss: () -> Unit) {
                 Entry(
                     Icons.Outlined.Download,
                     download.name,
-                    detail = PROGRESS_LABELS.getValue(download.progress),
+                    detail = download.detail(context),
                     enabled = download.progress == Progress.Done,
-                    onClick = { download.view(context) },
+                    onClick = { download.open(context) },
                 )
             }
         }

@@ -108,9 +108,7 @@ impl Browser {
                 .update(cx, |favicons, cx| favicons.store(page, png.clone(), cx)),
             Event::Snapshot { page, jpeg } => self.keep_snapshot(page, jpeg.clone(), cx),
             Event::Focused => self.focused(view, cx),
-            Event::Download(transfer) => self
-                .downloads
-                .update(cx, |downloads, cx| downloads.track(transfer.clone(), cx)),
+            Event::Download(transfer) => self.track_download(transfer, cx),
             Event::DownloadVideo(url) => self.download_video(url, cx),
             Event::Zoomed => self.zoom_changed(cx),
             Event::Internal(message) => self.answer_page(view, message.clone(), cx),
