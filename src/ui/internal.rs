@@ -49,7 +49,7 @@ fn read(import: &Import) -> (String, Imported) {
     }
 }
 
-fn reply(view: &WeakEntity<WebView>, reply: &Reply, cx: &mut AsyncApp) {
+pub(super) fn reply(view: &WeakEntity<WebView>, reply: &Reply, cx: &mut AsyncApp) {
     let json = reply.json();
     view.update(cx, |view, _| view.post(&json)).ok();
 }
@@ -293,6 +293,8 @@ impl Browser {
             settings::Message::CheckForUpdates => self.check_for_updates(cx),
             settings::Message::InstallUpdate => updater(cx).update(cx, Updater::install),
             settings::Message::RunImport(import) => self.import(view, import, cx),
+            settings::Message::ExportBackup => self.export_backup(view, cx),
+            settings::Message::ImportBackup => self.import_backup(view, cx),
             settings::Message::Passwords { action } => self.answer_passwords(view, action, cx),
             settings::Message::CreateProfile { name } => self.create_profile(&name, cx),
             settings::Message::RenameProfile { profile, name } => {

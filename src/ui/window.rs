@@ -1,16 +1,22 @@
-use std::{cell::RefCell, path::PathBuf, rc::Rc, sync::Arc};
+use std::{
+    cell::RefCell,
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::Arc,
+};
 
 use gpui::{
-    App, AppContext, Bounds, Context, Entity, Focusable, Global, Result, TitlebarOptions, Window,
-    WindowBounds, WindowHandle, WindowOptions, point, px, size,
+    App, AppContext, Bounds, Context, DisplayId, Entity, Focusable, Global, Pixels, Result,
+    TitlebarOptions, Window, WindowBounds, WindowHandle, WindowOptions, point, px, size,
 };
 
 use super::{
     NewPrivateWindow, NewTab, NewWindow, browser::Browser, page_bindings, password::Keyring,
-    update::Updater,
+    screen::screens, update::Updater,
 };
 use crate::{
     config::{Config, Settings},
+    placement::{self, Placement, Rect, State},
     role::Role,
     storage::{Store, permissions::Permissions},
     webview::{Environment, Runtime, Setup},
@@ -38,15 +44,84 @@ pub fn keyring(cx: &App) -> Entity<Keyring> {
     cx.global::<Shared>().keyring.clone()
 }
 
-fn options(cx: &App) -> WindowOptions {
+fn rect(bounds: Bounds<Pixels>) -> Rect {
+    Rect {
+        x: f32::from(bounds.origin.x),
+        y: f32::from(bounds.origin.y),
+        width: f32::from(bounds.size.width),
+        height: f32::from(bounds.size.height),
+    }
+}
+
+fn bounds(rect: Rect) -> Bounds<Pixels> {
+    Bounds {
+        origin: point(px(rect.x), px(rect.y)),
+        size: size(px(rect.width), px(rect.height)),
+    }
+}
+
+fn placement(window_bounds: WindowBounds) -> Placement {
+    let (restored, state) = match window_bounds {
+        WindowBounds::Windowed(restored) | WindowBounds::Fullscreen(restored) => {
+            (restored, State::Windowed)
+        }
+        WindowBounds::Maximized(restored) => (restored, State::Maximized),
+    };
+    Placement {
+        bounds: rect(restored),
+        state,
+    }
+}
+
+fn window_bounds(placement: Placement) -> WindowBounds {
+    let restored = bounds(placement.bounds);
+    match placement.state {
+        State::Windowed => WindowBounds::Windowed(restored),
+        State::Maximized => WindowBounds::Maximized(restored),
+    }
+}
+
+fn cascaded(cx: &App) -> WindowBounds {
     let centered = Bounds::centered(None, size(px(WINDOW_WIDTH_PX), px(WINDOW_HEIGHT_PX)), cx);
     let cascade = px(CASCADE_PX) * cx.windows().len() as f32;
-    let bounds = Bounds {
+    WindowBounds::Windowed(Bounds {
         origin: centered.origin + point(cascade, cascade),
         ..centered
+    })
+}
+
+fn remembered(folder: &Path, cx: &App) -> Option<(DisplayId, WindowBounds)> {
+    let saved = match placement::load(folder) {
+        Ok(saved) => saved?,
+        Err(error) => {
+            eprintln!("magpie: could not read the window placement: {error}");
+            return None;
+        }
+    };
+    let screens = screens(cx);
+    let available: Vec<_> = screens.iter().map(|(_, screen)| *screen).collect();
+    let (index, fitted) = saved.fit(&available)?;
+    Some((screens[index].0, window_bounds(fitted)))
+}
+
+fn remember(window: &Window, folder: &Path) {
+    if let Err(error) = placement::save(folder, &placement(window.window_bounds())) {
+        eprintln!("magpie: could not save the window placement: {error}");
+    }
+}
+
+fn options(role: Role, folder: &Path, cx: &App) -> WindowOptions {
+    let restored = match role {
+        Role::Primary => remembered(folder, cx),
+        Role::Secondary | Role::Private => None,
+    };
+    let (display_id, window_bounds) = match restored {
+        Some((display, window_bounds)) => (Some(display), window_bounds),
+        None => (None, cascaded(cx)),
     };
     WindowOptions {
-        window_bounds: Some(WindowBounds::Windowed(bounds)),
+        window_bounds: Some(window_bounds),
+        display_id,
         titlebar: Some(TitlebarOptions {
             title: Some("Magpie".into()),
             appears_transparent: true,
@@ -95,14 +170,19 @@ pub fn open(
 ) -> Result<WindowHandle<Browser>> {
     let shared = cx.global::<Shared>();
     let setup = setup(&store, shared);
-    let config = Config::load(&shared.config_folder);
-    cx.open_window(options(cx), |window, cx| {
+    let config_folder = shared.config_folder.clone();
+    let config = Config::load(&config_folder);
+    let role = store.role();
+    cx.open_window(options(role, &config_folder, cx), move |window, cx| {
         let runtime = Runtime::new(window, setup, &config.settings)
             .expect("a GPUI window on Windows has a Win32 handle");
         let browser = cx.new(|cx| Browser::new(runtime, store, config, cx));
         browser.focus_handle(cx).focus(window);
         let closing = browser.downgrade();
         window.on_window_should_close(cx, move |window, cx| {
+            if role == Role::Primary {
+                remember(window, &config_folder);
+            }
             closing
                 .update(cx, |browser, cx| browser.may_close(window, cx))
                 .unwrap_or(true)

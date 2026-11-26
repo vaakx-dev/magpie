@@ -555,6 +555,17 @@
         </div>
       </div>
       <div class="group">
+        <div class="card">
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="BackgroundPlay">Keep media playing in background</span>
+              <span class="description" data-text="BackgroundPlayHint">Sites can't tell when their tab is hidden or the window is minimized, so videos and music don't pause</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="background_play">
+          </label>
+        </div>
+      </div>
+      <div class="group">
         <h2 data-text="ForceDarkMode">Force dark mode</h2>
         <div class="card">
           <label class="row">
@@ -615,6 +626,30 @@
               <div class="description" id="import-status" data-text="ImportAdds">Adds to what Magpie already has</div>
             </div>
             <button class="button primary" id="import-run" type="button" data-text="Import" disabled>Import</button>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="MagpieBackup">Magpie backup</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="ExportData">Export Magpie data</div>
+              <div class="description" data-text="ExportDataHint">Saves your spaces, favorites, pinned tabs and settings to a JSON file</div>
+            </div>
+            <button class="button" id="backup-export" type="button" data-text="Export">Export…</button>
+          </div>
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="ImportBackup">Import Magpie backup</div>
+              <div class="description" data-text="ImportBackupHint">Replaces your spaces, favorites, pinned tabs and settings with the ones in the backup</div>
+            </div>
+            <button class="button" id="backup-import" type="button" data-text="ChooseBackup">Choose…</button>
+          </div>
+          <div class="row" id="backup-row" hidden>
+            <div class="label" aria-live="polite">
+              <div class="description" id="backup-status"></div>
+            </div>
           </div>
         </div>
       </div>

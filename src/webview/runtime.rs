@@ -339,6 +339,10 @@ impl Runtime {
         self.settings.borrow().classic_scrollbars
     }
 
+    pub(super) fn background_play(&self) -> Switch {
+        self.settings.borrow().background_play
+    }
+
     pub(super) fn dark_mode(&self) -> Ref<'_, darkmode::Config> {
         Ref::map(self.settings.borrow(), |settings| &settings.dark_mode)
     }

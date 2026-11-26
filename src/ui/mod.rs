@@ -1,9 +1,11 @@
 mod audio;
+mod backup;
 mod badge;
 mod banner;
 mod browser;
 mod command;
 mod context_menu;
+mod crash;
 mod downloads;
 mod drag;
 mod exit;
@@ -13,6 +15,7 @@ pub mod field;
 mod find;
 mod frame;
 pub mod fullscreen;
+mod handoff;
 mod icon;
 mod internal;
 mod marquee;
@@ -25,6 +28,7 @@ mod pill;
 mod profile;
 mod recovery;
 mod resize;
+mod screen;
 mod session;
 mod sidebar;
 mod site;
@@ -52,6 +56,7 @@ use gpui::{Action, App, AppContext, Context, Entity, KeyBinding, Window, actions
 
 use crate::{
     config::{self, Config},
+    instance::Instance,
     storage::{
         Store,
         permissions::Permissions,
@@ -226,7 +231,7 @@ fn watch_for_crashes(folder: &Path, cx: &mut App) -> Exit {
     exit
 }
 
-pub fn open(addresses: &[String], cx: &mut App) {
+pub fn open(addresses: &[String], instance: Option<Instance>, cx: &mut App) {
     let store = match Store::open_default() {
         Ok(store) => store,
         Err(error) => {
@@ -271,6 +276,10 @@ pub fn open(addresses: &[String], cx: &mut App) {
     if let Err(error) = window::open(store, start, cx) {
         eprintln!("magpie: could not open a window: {error}");
         cx.quit();
+        return;
+    }
+    if let Some(instance) = instance {
+        handoff::receive(instance, cx);
     }
     cx.activate(true);
 }

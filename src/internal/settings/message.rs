@@ -109,6 +109,8 @@ pub enum Message {
     CheckForUpdates,
     InstallUpdate,
     RunImport(Import),
+    ExportBackup,
+    ImportBackup,
     Passwords {
         action: PasswordAction,
     },

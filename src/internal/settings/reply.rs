@@ -24,7 +24,7 @@ use crate::{
     zoom::Zoom,
 };
 
-const PAGE_TEXT: [Text; 180] = [
+const PAGE_TEXT: [Text; 189] = [
     Text::Settings,
     Text::Appearance,
     Text::General,
@@ -205,6 +205,15 @@ const PAGE_TEXT: [Text; 180] = [
     Text::SpaceProfilesHint,
     Text::DeleteProfile,
     Text::DeleteProfileNow,
+    Text::BackgroundPlay,
+    Text::BackgroundPlayHint,
+    Text::MagpieBackup,
+    Text::ExportData,
+    Text::ExportDataHint,
+    Text::Export,
+    Text::ImportBackup,
+    Text::ImportBackupHint,
+    Text::ChooseBackup,
 ];
 
 const REMEMBERED: [permissions::State; 2] = [permissions::State::Allow, permissions::State::Block];
@@ -346,6 +355,13 @@ pub struct ImportChoice {
     label: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupStatus {
+    Done,
+    Failed,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Reply {
@@ -362,6 +378,10 @@ pub enum Reply {
     },
     Logins {
         logins: Vec<LoginRow>,
+    },
+    Backup {
+        status: BackupStatus,
+        message: String,
     },
 }
 
@@ -554,6 +574,13 @@ impl Reply {
         Self::Imported {
             summary: format!("✓ Imported {bookmarks}, {history}"),
             warnings: report.warnings,
+        }
+    }
+
+    pub fn backup(status: BackupStatus, message: impl Into<String>) -> Self {
+        Self::Backup {
+            status,
+            message: message.into(),
         }
     }
 

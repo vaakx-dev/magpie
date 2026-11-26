@@ -184,6 +184,12 @@ impl Store {
         file::save(&self.folder.join(PAUSED_SITES_FILE), sites)
     }
 
+    pub fn replace_session(&mut self, mut session: Session) {
+        session.shift_tab_ids(self.next_tab_id().0);
+        session.keep_profiles(&self.profiles());
+        self.session = session;
+    }
+
     pub fn next_tab_id(&self) -> TabId {
         let open = self.session.spaces.iter().flat_map(|space| space.tabs());
         let archived = self.archive.list().map(|entry| &entry.tab);

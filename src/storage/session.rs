@@ -231,6 +231,15 @@ fn collect_tabs<'a>(items: &'a [Pinned], tabs: &mut Vec<&'a Tab>) {
     }
 }
 
+fn shift_pinned_ids(items: &mut [Pinned], offset: u64) {
+    for item in items {
+        match item {
+            Pinned::Tab(tab) => tab.id = tab.id.shifted(offset),
+            Pinned::Folder(folder) => shift_pinned_ids(&mut folder.items, offset),
+        }
+    }
+}
+
 fn largest_folder_id(items: &[Pinned]) -> u64 {
     items
         .iter()
@@ -270,7 +279,21 @@ fn find_tab(items: &mut [Pinned], id: TabId) -> Option<&mut Tab> {
     })
 }
 
+impl TabId {
+    fn shifted(self, offset: u64) -> Self {
+        Self(self.0 + offset)
+    }
+}
+
 impl Space {
+    fn shift_tab_ids(&mut self, offset: u64) {
+        shift_pinned_ids(&mut self.pinned, offset);
+        for tab in &mut self.today {
+            tab.id = tab.id.shifted(offset);
+        }
+        self.active = self.active.map(|id| id.shifted(offset));
+    }
+
     pub fn new(id: SpaceId, name: impl Into<String>, theme: impl Into<String>) -> Self {
         Self {
             id,
@@ -464,6 +487,12 @@ impl Session {
             .iter_mut()
             .find_map(|space| space.folder_mut(id))
             .is_some_and(|folder| rename(&mut folder.name, name))
+    }
+
+    pub fn shift_tab_ids(&mut self, offset: u64) {
+        for space in &mut self.spaces {
+            space.shift_tab_ids(offset);
+        }
     }
 
     pub fn next_folder_id(&self) -> FolderId {

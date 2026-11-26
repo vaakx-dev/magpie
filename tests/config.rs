@@ -20,6 +20,7 @@ fn custom_settings() -> Settings {
     let mut settings = Settings {
         theme: Theme::Dark,
         classic_scrollbars: Switch::On,
+        background_play: Switch::On,
         default_zoom: Zoom(110),
         ..Settings::default()
     };

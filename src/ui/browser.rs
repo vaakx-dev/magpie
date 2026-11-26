@@ -230,8 +230,13 @@ impl Browser {
             }
             (Startup::NewTab, _) => self.archive_today(cx),
         }
+        self.open_addresses(addresses, cx);
+    }
+
+    pub(super) fn open_addresses(&mut self, addresses: &[String], cx: &mut Context<Self>) {
+        let search = self.settings().general.search.clone();
         for address in addresses.iter().rev() {
-            self.open_in_new_tab(destination(address, &general.search).url(), cx);
+            self.open_in_new_tab(destination(address, &search).url(), cx);
         }
     }
 
@@ -735,6 +740,7 @@ impl Browser {
                         self.cutouts.clone(),
                         corners,
                     ))
+                    .children(self.crash_notice(&pane.view, cx))
                     .children(self.find_card(&pane.view, cx))
                     .children(self.permission_card(&pane.view, cx))
                     .children(self.login_dropdown(&pane.view, cx))

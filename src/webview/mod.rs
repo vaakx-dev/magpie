@@ -1,8 +1,10 @@
 mod audio;
 pub mod autofill;
 mod backdrop;
+mod background;
 mod context_menu;
 mod cosmetic;
+mod crash;
 mod cutout;
 mod darkmode;
 mod devtools;
@@ -72,6 +74,7 @@ use crate::{
     zoom::{Step, Zoom},
 };
 use autofill::{Fill, Login, Submission};
+use background::BackgroundPlay;
 use darkmode::DarkMode;
 use download::Prompt;
 use filter::Filter;
@@ -141,6 +144,15 @@ pub enum Corners {
     Square,
 }
 
+#[derive(Default)]
+struct PageScripts {
+    scrollbars: Scrollbars,
+    dark_mode: DarkMode,
+    focus: Focus,
+    preloading: Preloading,
+    background_play: BackgroundPlay,
+}
+
 pub struct WebView {
     runtime: Rc<Runtime>,
     profile: ProfileId,
@@ -158,10 +170,8 @@ pub struct WebView {
     track: Option<Track>,
     asleep: bool,
     settling: Task<()>,
-    scrollbars: Scrollbars,
-    dark_mode: DarkMode,
-    focus: Focus,
-    preloading: Preloading,
+    scripts: PageScripts,
+    crashed: bool,
     prompts: Vec<PermissionPrompt>,
     asked: BTreeSet<Kind>,
     login: Login,
@@ -212,6 +222,7 @@ fn wire(
     find::wire(&native.webview, signals)?;
     media::wire(&native.webview, signals.clone())?;
     fullscreen::wire(&native.webview, signals.clone())?;
+    crash::wire(&native.webview, signals.clone())?;
     permission::wire(&native.webview, Rc::clone(runtime), signals.clone())?;
     scheme::wire(&native.webview, environment.clone(), signals.clone())?;
     download::wire(&native.webview, Rc::clone(runtime), signals.clone())?;
@@ -230,20 +241,21 @@ fn wire(
     )
 }
 
-fn style_scrollbars(scrollbars: &mut Scrollbars, native: &Native, runtime: &Runtime) {
-    report(scrollbars.apply(&native.webview, runtime.classic_scrollbars()));
-}
-
-fn darken(dark_mode: &mut DarkMode, native: &Native, runtime: &Runtime) {
-    report(dark_mode.apply(&native.webview, &runtime.dark_mode()));
-}
-
-fn block_distractions(focus: &mut Focus, native: &Native, runtime: &Runtime) {
-    report(focus.apply(&native.webview, &runtime.focus()));
-}
-
-fn guard_preloading(preloading: &mut Preloading, native: &Native, runtime: &Runtime) {
-    report(preloading.apply(&native.webview, runtime.privacy().block_preloading));
+impl PageScripts {
+    fn apply(&mut self, native: &Native, runtime: &Runtime) {
+        let webview = &native.webview;
+        report(self.scrollbars.apply(webview, runtime.classic_scrollbars()));
+        report(self.dark_mode.apply(webview, &runtime.dark_mode()));
+        report(self.focus.apply(webview, &runtime.focus()));
+        report(
+            self.preloading
+                .apply(webview, runtime.privacy().block_preloading),
+        );
+        report(
+            self.background_play
+                .apply(webview, runtime.background_play()),
+        );
+    }
 }
 
 fn release_focus(native: &Native, runtime: &Runtime) {
@@ -327,10 +339,8 @@ impl WebView {
             track: None,
             asleep: false,
             settling: Task::ready(()),
-            scrollbars: Scrollbars::default(),
-            dark_mode: DarkMode::default(),
-            focus: Focus::default(),
-            preloading: Preloading::default(),
+            scripts: PageScripts::default(),
+            crashed: false,
             prompts: Vec::new(),
             asked: BTreeSet::new(),
             login: Login::default(),
@@ -503,10 +513,7 @@ impl WebView {
     pub fn apply_settings(&mut self) {
         self.apply_zoom();
         if let Some(native) = &self.native {
-            style_scrollbars(&mut self.scrollbars, native, &self.runtime);
-            darken(&mut self.dark_mode, native, &self.runtime);
-            block_distractions(&mut self.focus, native, &self.runtime);
-            guard_preloading(&mut self.preloading, native, &self.runtime);
+            self.scripts.apply(native, &self.runtime);
         }
     }
 
@@ -621,7 +628,36 @@ impl WebView {
         if visibility != Visibility::Hidden && mem::take(&mut self.asleep) {
             native.resume();
         }
-        reveal(native, &self.runtime, visibility);
+        reveal(native, &self.runtime, self.presented());
+    }
+
+    fn presented(&self) -> Visibility {
+        match self.crashed {
+            true => Visibility::Hidden,
+            false => self.visibility,
+        }
+    }
+
+    pub fn crashed(&self) -> bool {
+        self.crashed
+    }
+
+    fn crash(&mut self) {
+        self.crashed = true;
+        self.loading = false;
+        self.present();
+    }
+
+    fn revive(&mut self) {
+        if mem::take(&mut self.crashed) {
+            self.present();
+        }
+    }
+
+    fn present(&self) {
+        if let Some(native) = &self.native {
+            reveal(native, &self.runtime, self.presented());
+        }
     }
 
     fn activity(&self) -> Activity {
@@ -676,10 +712,7 @@ impl WebView {
             return;
         }
         native.paint(self.backdrop);
-        style_scrollbars(&mut self.scrollbars, &native, &self.runtime);
-        darken(&mut self.dark_mode, &native, &self.runtime);
-        block_distractions(&mut self.focus, &native, &self.runtime);
-        guard_preloading(&mut self.preloading, &native, &self.runtime);
+        self.scripts.apply(&native, &self.runtime);
         if let Some(placement) = &self.placement {
             native.place(placement);
         }
@@ -717,6 +750,7 @@ impl WebView {
             Signal::ZoomDrifted => self.apply_zoom(),
             Signal::Matches(matches) => self.matches = Some(matches),
             Signal::Started => {
+                self.revive();
                 self.loading = true;
                 self.track = None;
                 self.login = Login::default();
@@ -756,6 +790,7 @@ impl WebView {
             Signal::Permission(prompt) => self.ask(prompt),
             Signal::Login(sighting) => self.login.see(sighting),
             Signal::Submitted(submission) => cx.emit(Event::Submitted(submission)),
+            Signal::Crashed => self.crash(),
         }
         cx.notify();
     }

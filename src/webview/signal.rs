@@ -50,6 +50,7 @@ pub enum Signal {
     Permission(PermissionPrompt),
     Login(Sighting),
     Submitted(Submission),
+    Crashed,
 }
 
 #[derive(Clone)]

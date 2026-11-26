@@ -626,7 +626,7 @@ impl Browser {
         self.activate(id, cx);
     }
 
-    fn archived(&mut self, cx: &mut Context<Self>) {
+    fn drop_closed_panes(&mut self, cx: &mut Context<Self>) {
         let session = &self.store.session;
         self.live.retain(|id, _| session.space_of(*id).is_some());
         self.save_session(cx);
@@ -644,13 +644,23 @@ impl Browser {
             return;
         };
         if self.store.sweep(Epoch::now(), idle) > 0 {
-            self.archived(cx);
+            self.drop_closed_panes(cx);
         }
+    }
+
+    pub(super) fn replace_session(
+        &mut self,
+        mut session: session::Session,
+        cx: &mut Context<Self>,
+    ) {
+        space::prepare(&mut session);
+        self.store.replace_session(session);
+        self.drop_closed_panes(cx);
     }
 
     pub(super) fn archive_today(&mut self, cx: &mut Context<Self>) {
         self.store.archive_today(Epoch::now());
-        self.archived(cx);
+        self.drop_closed_panes(cx);
     }
 
     pub(super) fn resume(&mut self, cx: &mut Context<Self>) {

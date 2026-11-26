@@ -66,6 +66,7 @@ pub enum Switch {
 pub struct Settings {
     pub theme: Theme,
     pub classic_scrollbars: Switch,
+    pub background_play: Switch,
     pub default_zoom: Zoom,
     pub layout: Layout,
     pub general: General,
@@ -155,10 +156,18 @@ impl Settings {
         )
     }
 
+    pub fn parse_with_sponsorblock(text: &str, sponsorblock: &str) -> Self {
+        Self {
+            sponsorblock: sponsorblock::Config::parse(sponsorblock),
+            ..Self::parse(text)
+        }
+    }
+
     pub fn set(&mut self, key: &str, value: &str) {
         let Self {
             theme,
             classic_scrollbars,
+            background_play,
             default_zoom,
             layout,
             general,
@@ -172,6 +181,7 @@ impl Settings {
         match key {
             "theme" => choose(theme, value),
             "classic_scrollbars" => choose(classic_scrollbars, value),
+            "background_play" => choose(background_play, value),
             "default_zoom" => choose(default_zoom, value),
             "top_bar" => choose(&mut layout.top_bar, value),
             "sidebar" => choose(&mut layout.sidebar, value),
@@ -225,6 +235,7 @@ impl Settings {
         let Self {
             theme,
             classic_scrollbars,
+            background_play,
             default_zoom,
             layout,
             general,
@@ -241,6 +252,7 @@ impl Settings {
                 "classic_scrollbars",
                 classic_scrollbars.label().into_owned(),
             ),
+            ("background_play", background_play.label().into_owned()),
             ("default_zoom", default_zoom.label().into_owned()),
             ("top_bar", layout.top_bar.label().into_owned()),
             ("sidebar", layout.sidebar.label().into_owned()),
@@ -325,17 +337,11 @@ impl Config {
         let settings = [FILE, LEGACY_FILE]
             .iter()
             .find_map(read)
-            .map_or_else(Settings::default, |text| Settings::parse(&text));
-        let sponsorblock = read(&SPONSORBLOCK_FILE)
-            .map_or_else(sponsorblock::Config::default, |text| {
-                sponsorblock::Config::parse(&text)
-            });
+            .unwrap_or_default();
+        let sponsorblock = read(&SPONSORBLOCK_FILE).unwrap_or_default();
         Self {
             folder: folder.to_owned(),
-            settings: Settings {
-                sponsorblock,
-                ..settings
-            },
+            settings: Settings::parse_with_sponsorblock(&settings, &sponsorblock),
         }
     }
 

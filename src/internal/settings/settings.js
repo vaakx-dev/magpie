@@ -375,6 +375,14 @@ function finishImport({ summary, warnings }) {
   renderImport()
 }
 
+function showBackup({ status, message }) {
+  const description = byId("backup-status")
+  byId("backup-row").hidden = false
+  description.textContent = message
+  description.classList.toggle("success", status === "done")
+  description.classList.toggle("error", status === "failed")
+}
+
 function changeImport() {
   if (importing.phase === "done") importing = { phase: "idle" }
   renderImport()
@@ -673,6 +681,8 @@ function received({ data }) {
       return setClearing(data.error === null ? { phase: "cleared" } : { phase: "failed", error: data.error })
     case "imported":
       return finishImport(data)
+    case "backup":
+      return showBackup(data)
     case "logins":
       return renderList(byId("vault-logins"), data.logins, vaultRows)
   }
@@ -804,6 +814,8 @@ function listen() {
   byId("find").addEventListener("keydown", clearFindOnEscape)
   byId("import").addEventListener("change", changeImport)
   byId("import-run").addEventListener("click", runImport)
+  byId("backup-export").addEventListener("click", () => post({ type: "export_backup" }))
+  byId("backup-import").addEventListener("click", () => post({ type: "import_backup" }))
   byId("profile-add").addEventListener("submit", addProfile)
   byId("clear-start").addEventListener("click", startClearing)
   byId("clear-cancel").addEventListener("click", cancelClearing)
