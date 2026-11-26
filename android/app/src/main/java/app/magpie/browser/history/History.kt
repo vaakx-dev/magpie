@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.mutableStateListOf
 import androidx.core.content.edit
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 
 data class Visit(val url: String, val title: String)
@@ -34,9 +35,11 @@ class History(private val preferences: SharedPreferences) {
         save()
     }
 
-    private fun load(): List<Visit> {
+    private fun load(): List<Visit> = try {
         val array = JSONArray(preferences.getString(HISTORY, "[]"))
-        return (0 until array.length()).map { array.getJSONObject(it) }.map { Visit(it.getString("url"), it.getString("title")) }
+        (0 until array.length()).map { array.getJSONObject(it) }.map { Visit(it.getString("url"), it.optString("title")) }
+    } catch (corrupt: JSONException) {
+        emptyList()
     }
 
     private fun save() {

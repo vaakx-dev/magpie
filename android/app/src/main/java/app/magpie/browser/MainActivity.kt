@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         browser.background()
+        browser.flush()
     }
 
     override fun onNewIntent(intent: Intent) {

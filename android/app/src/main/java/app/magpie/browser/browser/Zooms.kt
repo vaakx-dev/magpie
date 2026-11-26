@@ -40,5 +40,9 @@ class Zooms private constructor(private val file: JsonFile?, private var saved: 
         file?.write(changed.json())
     }
 
+    fun flush() {
+        file?.flush()
+    }
+
     fun inMemory(): Zooms = Zooms(null, saved)
 }

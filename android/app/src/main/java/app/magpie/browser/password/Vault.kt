@@ -3,6 +3,8 @@ package app.magpie.browser.password
 import android.content.Context
 import app.magpie.browser.core.MagpieCore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -71,11 +73,15 @@ fun parseCode(json: String): String = JSONObject(json).optString("code")
 
 class Vault(context: Context) {
     private val savedKey = SavedKey(context)
+    private val opening = Mutex()
 
     suspend fun status(): Status {
         if (!MagpieCore.loaded) return Status(Lock.Unavailable)
-        val status = core { parseStatus(MagpieCore.bitwardenStatus()) }
-        return if (status.lock == Lock.Locked) unlockWithSavedKey(status) else status
+        return opening.withLock {
+            core { savedKey.dropLegacy() }
+            val status = core { parseStatus(MagpieCore.bitwardenStatus()) }
+            if (status.lock == Lock.Locked) unlockWithSavedKey(status) else status
+        }
     }
 
     suspend fun signIn(server: String, email: String, password: String): Status =
@@ -115,7 +121,7 @@ class Vault(context: Context) {
     private suspend fun unlockWithSavedKey(locked: Status): Status {
         val status = core { savedKey.open()?.let { key -> unlockWith(key) } } ?: return locked
         if (status.lock == Lock.Unlocked) return status
-        core { savedKey.forget() }
+        if (status.lock == Lock.Locked) core { savedKey.forget() }
         return status.copy(error = "")
     }
 

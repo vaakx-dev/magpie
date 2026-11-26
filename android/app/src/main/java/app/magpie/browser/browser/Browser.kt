@@ -57,14 +57,14 @@ class Browser(private val context: Context) {
     val permissions = Permissions(preferences)
     val apps = Apps(context)
     val engine = Engine(context, settings, scope)
-    val updates = Updates(context, scope, settings)
+    val updates = Updates(context, scope, settings, beforeInstall = ::flush)
 
     val tabs = mutableStateListOf<Tab>()
     var space by mutableStateOf(spaces.saved.first())
         private set
     private val selected = mutableStateMapOf<String, Tab>()
     val closed = ClosedTabs()
-    private val tabsFile = JsonFile(context, TABS_FILE, scope)
+    private val tabStore = TabStore(JsonFile(context, TABS_FILE, scope))
     private var extension: WebExtension? = null
     private var nextTabId = 0L
 
@@ -183,6 +183,13 @@ class Browser(private val context: Context) {
         if (!settings.backgroundPlay) tabs.forEach { it.media?.controller?.pause() }
     }
 
+    fun flush() {
+        tabStore.flush(savedTabs())
+        zooms.flush()
+        downloads.flush()
+        preferences.edit().commit()
+    }
+
     private fun create(space: Space): Tab = Tab(nextTabId++, space, engine.session(space), this).also { tab ->
         extension?.let(tab::connect)
     }
@@ -213,7 +220,7 @@ class Browser(private val context: Context) {
     }
 
     private fun restoreTabs() {
-        val saved = tabsFile.read(::savedTabs) ?: return
+        val saved = tabStore.restore() ?: return
         saved.spaces.forEach(::restoreSpace)
         switch(spaces.saved.find { it.id == saved.space } ?: space)
     }
@@ -231,7 +238,7 @@ class Browser(private val context: Context) {
     }
 
     private fun followTabs() {
-        scope.launch { snapshotFlow { savedTabs() }.drop(1).collect { tabsFile.write(it.json()) } }
+        scope.launch { snapshotFlow { savedTabs() }.drop(1).collect(tabStore::save) }
     }
 
     private fun connect(ready: WebExtension) {

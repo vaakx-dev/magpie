@@ -24,7 +24,7 @@ sealed interface Phase {
     data class Installing(val offer: Offer) : Phase
 }
 
-private const val UNREADABLE = "The update check gave an unreadable answer"
+internal const val UNREADABLE = "The update check gave an unreadable answer"
 
 private fun JSONObject.text(key: String): String? = if (isNull(key)) null else getString(key)
 

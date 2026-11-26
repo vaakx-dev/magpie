@@ -119,6 +119,10 @@ class Downloads(private val context: Context, private val scope: CoroutineScope)
         persist()
     }
 
+    fun flush() {
+        file.flush()
+    }
+
     private fun finish(download: Download, progress: Progress) {
         download.progress = progress
         persist()

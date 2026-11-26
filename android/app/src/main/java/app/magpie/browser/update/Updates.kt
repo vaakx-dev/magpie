@@ -1,5 +1,6 @@
 package app.magpie.browser.update
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -15,15 +16,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 import java.io.File
 import java.io.IOException
 
 private const val APK_TYPE = "application/vnd.android.package-archive"
 private const val UPDATES_FOLDER = "updates"
 private const val NO_CORE = "Needs Magpie's core library, which isn't in this build."
+private const val NO_INSTALLER = "This device has no app that can install the update"
 private const val ALLOW_INSTALLS = "Allow Magpie to install apps, then tap Download & Install again"
 
-class Updates(private val context: Context, private val scope: CoroutineScope, private val settings: Settings) {
+class Updates(
+    private val context: Context,
+    private val scope: CoroutineScope,
+    private val settings: Settings,
+    private val beforeInstall: () -> Unit,
+) {
     var phase by mutableStateOf<Phase>(Phase.Idle)
         private set
     private var dismissed by mutableStateOf(false)
@@ -31,6 +39,7 @@ class Updates(private val context: Context, private val scope: CoroutineScope, p
     val version: String = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
     private val dataDir = context.filesDir.absolutePath
     private val folder = File(context.cacheDir, UPDATES_FOLDER)
+    private val leftovers = scope.launch(Dispatchers.IO) { folder.deleteRecursively() }
 
     private val busy: Boolean get() = phase == Phase.Checking || phase is Phase.Downloading
 
@@ -56,7 +65,11 @@ class Updates(private val context: Context, private val scope: CoroutineScope, p
         scope.launch {
             val abis = Build.SUPPORTED_ABIS.joinToString(",")
             val channel = settings.updateChannel.name
-            phase = withContext(Dispatchers.IO) { parseStatus(MagpieCore.updateCheck(dataDir, version, abis, channel)) }
+            phase = try {
+                withContext(Dispatchers.IO) { parseStatus(MagpieCore.updateCheck(dataDir, version, abis, channel)) }
+            } catch (unreadable: JSONException) {
+                Phase.Failed(UNREADABLE)
+            }
             dismissed = false
         }
     }
@@ -71,12 +84,16 @@ class Updates(private val context: Context, private val scope: CoroutineScope, p
         }
         phase = Phase.Downloading(offer, 0)
         scope.launch {
+            leftovers.join()
             phase = try {
                 val apk = withContext(Dispatchers.IO) { fetch(download, folder) { percent -> scope.launch { progressed(percent) } } }
+                beforeInstall()
                 openInstaller(apk)
                 Phase.Installing(offer)
             } catch (failure: IOException) {
                 Phase.DownloadFailed(offer, failure.message ?: "The download stopped")
+            } catch (missing: ActivityNotFoundException) {
+                Phase.DownloadFailed(offer, NO_INSTALLER)
             }
         }
     }
