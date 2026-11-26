@@ -4,18 +4,17 @@ use super::{
     browser::Browser,
     icon::Icon,
     surface::{PANEL_CORNER_PX, surface, text_button},
+    toolbar::icon_button,
     window,
 };
 use crate::{
     internal::Page,
     locale::Text,
     storage::permissions::{Kind, Origin, State},
-    webview::WebView,
+    webview::{Access, WebView},
 };
 
 const WIDTH_PX: f32 = 360.0;
-const TOP_PX: f32 = 8.0;
-const LEFT_PX: f32 = 8.0;
 
 pub fn icon(kind: Kind) -> Icon {
     match kind {
@@ -76,7 +75,19 @@ impl Browser {
             self.text(Text::AllowOnce),
             self.colors(),
         )
-        .on_click(cx.listener(move |_, _, _, cx| view.update(cx, WebView::allow_once)))
+        .on_click(cx.listener(move |_, _, _, cx| {
+            view.update(cx, |view, cx| view.answer_once(Access::Granted, cx))
+        }))
+    }
+
+    pub(super) fn dismiss_permission(&self, view: &Entity<WebView>, cx: &mut Context<Self>) {
+        view.update(cx, |view, cx| view.answer_once(Access::Denied, cx));
+    }
+
+    fn permission_close(&self, view: &Entity<WebView>, cx: &mut Context<Self>) -> Stateful<Div> {
+        let view = view.clone();
+        icon_button("permission-close", Icon::X, self.colors())
+            .on_click(cx.listener(move |browser, _, _, cx| browser.dismiss_permission(&view, cx)))
     }
 
     pub(super) fn permission_card(
@@ -104,7 +115,8 @@ impl Browser {
                     .items_start()
                     .gap_2()
                     .child(icon(kind).tinted(rgba(colors.muted)))
-                    .child(div().flex_1().min_w_0().child(question)),
+                    .child(div().flex_1().min_w_0().child(question))
+                    .child(self.permission_close(view, cx)),
             )
             .child(
                 div()
@@ -115,13 +127,6 @@ impl Browser {
                     .child(self.allowing_once(view, cx))
                     .child(self.remembering(view, State::Allow, cx)),
             );
-        Some(
-            self.cutouts
-                .see_through(PANEL_CORNER_PX)
-                .absolute()
-                .top(px(TOP_PX))
-                .left(px(LEFT_PX))
-                .child(card),
-        )
+        Some(self.cutouts.see_through(PANEL_CORNER_PX).child(card))
     }
 }

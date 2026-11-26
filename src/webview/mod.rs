@@ -57,9 +57,10 @@ pub use backdrop::Backdrop;
 pub use cutout::Cutouts;
 pub use download::Transfer;
 pub use memory::{FrameId, Memory};
+pub use permission::Access;
 pub use permission::Prompt as PermissionPrompt;
 pub use profile::default_downloads;
-pub use runtime::{Environment, Runtime, Setup};
+pub use runtime::{Environment, Escape, Runtime, Setup};
 pub use snapshot::{HEIGHT_PX as SNAPSHOT_HEIGHT_PX, WIDTH_PX as SNAPSHOT_WIDTH_PX};
 
 use crate::{
@@ -85,14 +86,12 @@ use magpie_engine::{
 };
 use media::{Control, Track};
 use native::{Native, Placement, Rounded, report};
-use permission::Access;
 use preload::Preloading;
 use runtime::{Created, Generation};
 use scrollbar::Scrollbars;
 use signal::{CurrentPage, History, Signal, Signals};
 use sleep::Activity;
 
-const CORNER_PX: f32 = 6.0;
 const PAINT_SETTLE: Duration = Duration::from_millis(1500);
 const NEW_TAB_TITLE: &str = "New Tab";
 
@@ -139,12 +138,6 @@ pub enum Visibility {
     Focused,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Corners {
-    Rounded,
-    Square,
-}
-
 #[derive(Default)]
 struct PageScripts {
     scrollbars: Scrollbars,
@@ -181,18 +174,14 @@ pub struct WebView {
     pump: Task<()>,
 }
 
-fn frame(bounds: Bounds<Pixels>, scale: f32, corners: Corners) -> Rounded {
+fn frame(bounds: Bounds<Pixels>, scale: f32, corner_px: f32) -> Rounded {
     let physical = |logical: Pixels| cutout::physical(logical, scale);
-    let corner = match corners {
-        Corners::Rounded => physical(px(2.0 * CORNER_PX)),
-        Corners::Square => 0,
-    };
     Rounded {
         x: physical(bounds.origin.x),
         y: physical(bounds.origin.y),
         width: physical(bounds.size.width),
         height: physical(bounds.size.height),
-        corner,
+        corner: physical(px(2.0 * corner_px)),
     }
 }
 
@@ -859,7 +848,7 @@ impl WebView {
         self.settle_where(|_| Some(Access::Denied), cx);
     }
 
-    pub fn allow_once(&mut self, cx: &mut Context<Self>) {
+    pub fn answer_once(&mut self, access: Access, cx: &mut Context<Self>) {
         let Some((origin, kind)) = self
             .prompt()
             .map(|first| (first.origin.clone(), first.kind))
@@ -867,7 +856,7 @@ impl WebView {
             return;
         };
         let same = move |prompt: &PermissionPrompt| prompt.origin == origin && prompt.kind == kind;
-        self.settle_where(|prompt| same(prompt).then_some(Access::Granted), cx);
+        self.settle_where(|prompt| same(prompt).then_some(access), cx);
         cx.notify();
     }
 
@@ -910,13 +899,13 @@ impl WebView {
 
 impl EventEmitter<Event> for WebView {}
 
-pub fn surface(view: Entity<WebView>, cutouts: Cutouts, corners: Corners) -> impl IntoElement {
+pub fn surface(view: Entity<WebView>, cutouts: Cutouts, corner_px: f32) -> impl IntoElement {
     canvas(
         |_, _, _| {},
         move |bounds, (), window, cx| {
             let scale = window.scale_factor();
             let placement = Placement {
-                frame: frame(bounds, scale, corners),
+                frame: frame(bounds, scale, corner_px),
                 visible: visible(bounds, window.content_mask().bounds, scale),
                 cutouts: cutouts.within(bounds, scale),
             };

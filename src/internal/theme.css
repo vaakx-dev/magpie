@@ -1,22 +1,21 @@
 :root {
   color-scheme: light dark;
-  --ink: light-dark(#1d1d1f, #f2f2f4);
-  --on-ink: light-dark(#ffffff, #1d1d1f);
+  --page: light-dark(#f3f3f3, #141414);
+  --surface: light-dark(#ffffff, #1f1f1f);
+  --raised: light-dark(#eaeaea, #2a2a2a);
+  --text: light-dark(#141414, #f2f2f2);
+  --muted: light-dark(#666666, #969696);
+  --ink: var(--text);
+  --on-ink: light-dark(#ffffff, #141414);
   --ink-soft: color-mix(in srgb, var(--ink) 10%, transparent);
   --indicator: color-mix(in srgb, var(--ink) 55%, transparent);
-  --page: light-dark(#f7f7f8, #1b1b1d);
-  --surface: light-dark(#ffffff, #242426);
-  --raised: light-dark(#ededef, #303033);
-  --raised-hover: light-dark(#e3e3e6, #3a3a3e);
-  --selected: light-dark(#ffffff, #48484d);
-  --hairline: light-dark(#e5e5e8, #323235);
-  --field-border: light-dark(#cdcdd2, #48484d);
-  --switch-off: light-dark(#c6c6cb, #56565c);
-  --text: light-dark(#1d1d1f, #ededef);
-  --muted: light-dark(#66666d, #a0a0a7);
-  --danger: light-dark(#c42b1c, #ff7b6f);
-  --danger-solid: light-dark(#c42b1c, #d6453a);
-  --success: light-dark(#1a7f37, #5cc47b);
+  --raised-hover: color-mix(in srgb, var(--raised), var(--text) 6%);
+  --raised-focus: color-mix(in srgb, var(--raised), var(--text) 10%);
+  --selected: light-dark(var(--surface), color-mix(in srgb, var(--raised), var(--text) 16%));
+  --hairline: color-mix(in srgb, var(--surface), var(--text) 8%);
+  --switch-off: color-mix(in srgb, var(--raised), var(--text) 22%);
+  --danger: var(--text);
+  --success: var(--text);
   --radius: 8px;
   --radius-card: 12px;
   --card-inset: 16px;
@@ -111,23 +110,20 @@ p {
   cursor: default;
 }
 
-.button.primary {
+.button.danger {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.button.primary,
+.button.danger.solid {
   background: var(--ink);
   color: var(--on-ink);
 }
 
-.button.primary:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--ink), var(--page) 16%);
-}
-
-.button.danger {
-  color: var(--danger);
-}
-
-.button.danger.solid,
+.button.primary:hover:not(:disabled),
 .button.danger.solid:hover:not(:disabled) {
-  background: var(--danger-solid);
-  color: #ffffff;
+  background: color-mix(in oklab, var(--ink), var(--page) 16%);
 }
 
 .field,
@@ -135,27 +131,37 @@ p {
   height: 32px;
   min-width: 0;
   padding: 0 10px;
-  border: 1px solid var(--field-border);
+  border: 0;
   border-radius: var(--radius);
-  background-color: var(--surface);
+  background-color: var(--raised);
   color: var(--text);
   font: inherit;
   font-size: 14px;
+  transition: background-color var(--transition);
 }
 
 .field::placeholder {
   color: var(--muted);
 }
 
+.field:hover,
+.select:hover {
+  background-color: var(--raised-hover);
+}
+
 .field:focus,
-.select:focus-visible {
+.select:focus {
   outline: none;
-  border-color: var(--indicator);
-  box-shadow: 0 0 0 3px var(--ink-soft);
+  background-color: var(--raised-focus);
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--indicator);
+  outline-offset: 2px;
 }
 
 .field:user-invalid {
-  border-color: var(--danger);
+  box-shadow: inset 0 -2px 0 var(--danger);
 }
 
 .select {
@@ -227,7 +233,7 @@ p {
 .segmented label {
   position: relative;
   padding: 4px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: var(--muted);
   font-size: 14px;
   white-space: nowrap;
@@ -262,10 +268,8 @@ kbd {
   display: inline-block;
   min-width: 24px;
   padding: 1px 7px;
-  border: 1px solid var(--hairline);
-  border-bottom-width: 2px;
-  border-radius: 6px;
-  background: var(--page);
+  border-radius: var(--radius);
+  background: var(--raised);
   color: var(--text);
   font: 500 12.5px/1.5 var(--font);
   text-align: center;

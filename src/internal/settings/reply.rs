@@ -24,7 +24,7 @@ use crate::{
     zoom::Zoom,
 };
 
-const PAGE_TEXT: [Text; 186] = [
+const PAGE_TEXT: [Text; 193] = [
     Text::Settings,
     Text::Appearance,
     Text::General,
@@ -45,6 +45,7 @@ const PAGE_TEXT: [Text; 186] = [
     Text::FavoritesSize,
     Text::FavoritesSizeHint,
     Text::FavoritesColumns,
+    Text::Favorites,
     Text::WindowControls,
     Text::WindowControlsHint,
     Text::WindowControlsSide,
@@ -211,6 +212,12 @@ const PAGE_TEXT: [Text; 186] = [
     Text::ImportBackup,
     Text::ImportBackupHint,
     Text::ChooseBackup,
+    Text::ImportBackupConfirm,
+    Text::ImportBackupWarning,
+    Text::SignOutConfirm,
+    Text::SignOutWarning,
+    Text::DeleteProfileConfirm,
+    Text::DeleteProfileWarning,
 ];
 
 const REMEMBERED: [permissions::State; 2] = [permissions::State::Allow, permissions::State::Block];

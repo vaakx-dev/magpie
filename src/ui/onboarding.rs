@@ -10,9 +10,10 @@ use super::{
     browser::Browser,
     command::{Mode, Target},
     favicon,
+    surface::{CONTROL_CORNER_PX, Colors, PANEL_CORNER_PX},
 };
 use crate::{
-    config::{Choosable, Engine, Scheme, Settings, Side, Switch, Theme},
+    config::{Choosable, Engine, Settings, Side, Switch, Theme},
     import::{Profile, Scope, detect},
 };
 
@@ -42,30 +43,6 @@ pub(super) struct Tour {
     _detection: Task<()>,
 }
 
-struct Tones {
-    backdrop: u32,
-    card: u32,
-    control: u32,
-    text: u32,
-    muted: u32,
-}
-
-const DARK: Tones = Tones {
-    backdrop: 0x14141499,
-    card: 0x1f1f1fff,
-    control: 0x2a2a2aff,
-    text: 0xf2f2f2ff,
-    muted: 0xf2f2f299,
-};
-
-const LIGHT: Tones = Tones {
-    backdrop: 0xf3f3f399,
-    card: 0xffffffff,
-    control: 0xeaeaeaff,
-    text: 0x141414ff,
-    muted: 0x14141499,
-};
-
 const STEPS: [Step; 4] = [Step::Welcome, Step::Look, Step::Search, Step::Bring];
 const THEMES: [Theme; 3] = [Theme::System, Theme::Dark, Theme::Light];
 const SIDES: [Side; 2] = [Side::Left, Side::Right];
@@ -74,23 +51,14 @@ const DEFAULT_APPS_SETTINGS: &str = "ms-settings:defaultapps";
 
 const CARD_WIDTH_PX: f32 = 440.0;
 const CARD_PADDING_PX: f32 = 24.0;
-const CARD_CORNER_PX: f32 = 12.0;
-const CONTROL_CORNER_PX: f32 = 8.0;
-const SEGMENT_CORNER_PX: f32 = 6.0;
 const CONTROL_HEIGHT_PX: f32 = 32.0;
 const SEGMENT_INSET_PX: f32 = 2.0;
+const SEGMENT_CORNER_PX: f32 = CONTROL_CORNER_PX - SEGMENT_INSET_PX;
 const ROW_HEIGHT_PX: f32 = 36.0;
 const DOT_PX: f32 = 6.0;
 const CURRENT_DOT_WIDTH_PX: f32 = 16.0;
 const LOGO_PX: f32 = 56.0;
 const HOVER_OPACITY: f32 = 0.85;
-
-fn tones(scheme: Scheme) -> &'static Tones {
-    match scheme {
-        Scheme::Dark => &DARK,
-        Scheme::Light => &LIGHT,
-    }
-}
 
 fn built_in_engines() -> impl Iterator<Item = Engine> {
     Engine::ALL
@@ -165,99 +133,102 @@ impl Step {
     }
 }
 
-impl Tones {
-    fn button(&self, id: impl Into<ElementId>, label: impl Into<SharedString>) -> Stateful<Div> {
-        div()
-            .id(id)
-            .h(px(CONTROL_HEIGHT_PX))
-            .px_4()
-            .flex()
-            .flex_none()
-            .items_center()
-            .justify_center()
-            .rounded(px(CONTROL_CORNER_PX))
-            .font_weight(FontWeight::SEMIBOLD)
-            .cursor_pointer()
-            .hover(|button| button.opacity(HOVER_OPACITY))
-            .child(label.into())
-    }
+fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Stateful<Div> {
+    div()
+        .id(id)
+        .h(px(CONTROL_HEIGHT_PX))
+        .px_4()
+        .flex()
+        .flex_none()
+        .items_center()
+        .justify_center()
+        .rounded(px(CONTROL_CORNER_PX))
+        .font_weight(FontWeight::SEMIBOLD)
+        .cursor_pointer()
+        .hover(|button| button.opacity(HOVER_OPACITY))
+        .child(label.into())
+}
 
-    fn primary(&self, id: &'static str, label: &'static str) -> Stateful<Div> {
-        self.button(id, label)
-            .bg(rgba(self.text))
-            .text_color(rgba(self.card))
-    }
+fn primary(colors: &Colors, id: &'static str, label: &'static str) -> Stateful<Div> {
+    button(id, label)
+        .bg(rgba(colors.text))
+        .text_color(rgba(colors.on_text))
+}
 
-    fn secondary(&self, id: impl Into<ElementId>, label: impl Into<SharedString>) -> Stateful<Div> {
-        self.button(id, label)
-            .bg(rgba(self.control))
-            .text_color(rgba(self.text))
-    }
+fn secondary(
+    colors: &Colors,
+    id: impl Into<ElementId>,
+    label: impl Into<SharedString>,
+) -> Stateful<Div> {
+    button(id, label)
+        .bg(rgba(colors.raised))
+        .text_color(rgba(colors.text))
+}
 
-    fn quiet(&self, id: &'static str, label: &'static str) -> Stateful<Div> {
-        div()
-            .id(id)
-            .px_2()
-            .py_1()
-            .rounded(px(CONTROL_CORNER_PX))
-            .text_color(rgba(self.muted))
-            .cursor_pointer()
-            .hover(|link| link.text_color(rgba(self.text)))
-            .child(label)
-    }
+fn quiet(colors: &Colors, id: &'static str, label: &'static str) -> Stateful<Div> {
+    let text = colors.text;
+    div()
+        .id(id)
+        .px_2()
+        .py_1()
+        .rounded(px(CONTROL_CORNER_PX))
+        .text_color(rgba(colors.muted))
+        .cursor_pointer()
+        .hover(move |link| link.text_color(rgba(text)))
+        .child(label)
+}
 
-    fn dots(&self, current: Step) -> Div {
-        div()
-            .flex()
-            .items_center()
-            .gap_1()
-            .children(STEPS.iter().map(|step| {
-                let reached = *step == current;
-                div()
-                    .h(px(DOT_PX))
-                    .w(px(if reached {
-                        CURRENT_DOT_WIDTH_PX
-                    } else {
-                        DOT_PX
-                    }))
-                    .rounded_full()
-                    .bg(rgba(if reached { self.text } else { self.control }))
-            }))
-    }
+fn dots(colors: &Colors, current: Step) -> Div {
+    div()
+        .flex()
+        .items_center()
+        .gap_1()
+        .children(STEPS.iter().map(|step| {
+            let reached = *step == current;
+            div()
+                .h(px(DOT_PX))
+                .w(px(if reached {
+                    CURRENT_DOT_WIDTH_PX
+                } else {
+                    DOT_PX
+                }))
+                .rounded_full()
+                .bg(rgba(if reached { colors.text } else { colors.raised }))
+        }))
+}
 
-    fn heading(&self, title: &'static str) -> Div {
-        div()
-            .text_lg()
-            .font_weight(FontWeight::SEMIBOLD)
-            .child(title)
-    }
+fn heading(title: &'static str) -> Div {
+    div()
+        .text_lg()
+        .font_weight(FontWeight::SEMIBOLD)
+        .child(title)
+}
 
-    fn label(&self, text: impl Into<SharedString>) -> Div {
-        div()
-            .text_xs()
-            .text_color(rgba(self.muted))
-            .child(text.into())
-    }
+fn label(colors: &Colors, text: impl Into<SharedString>) -> Div {
+    div()
+        .text_xs()
+        .text_color(rgba(colors.muted))
+        .child(text.into())
+}
 
-    fn field(&self, label: &'static str, control: impl IntoElement) -> Div {
-        div()
-            .flex()
-            .flex_col()
-            .gap_1p5()
-            .child(self.label(label))
-            .child(control)
-    }
+fn field(colors: &Colors, title: &'static str, control: impl IntoElement) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap_1p5()
+        .child(label(colors, title))
+        .child(control)
+}
 
-    fn row(&self, label: impl Into<SharedString>, control: impl IntoElement) -> Div {
-        div()
-            .h(px(ROW_HEIGHT_PX))
-            .flex()
-            .items_center()
-            .justify_between()
-            .gap_3()
-            .child(div().min_w_0().truncate().child(label.into()))
-            .child(control)
-    }
+fn row(title: impl Into<SharedString>, control: impl IntoElement) -> Div {
+    div()
+        .h(px(ROW_HEIGHT_PX))
+        .flex()
+        .items_center()
+        .justify_between()
+        .gap_3()
+        .child(div().min_w_0().truncate().child(title.into()))
+        .child(control)
 }
 
 impl Browser {
@@ -334,10 +305,6 @@ impl Browser {
         }
     }
 
-    fn tones(&self) -> &'static Tones {
-        tones(self.scheme())
-    }
-
     fn on_tap(
         &self,
         element: Stateful<Div>,
@@ -357,7 +324,7 @@ impl Browser {
         choose: fn(&mut Settings, T),
         cx: &mut Context<Self>,
     ) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         let segments = choices.iter().enumerate().map(|(index, &choice)| {
             let selected = choice == chosen;
             let segment = div()
@@ -369,10 +336,10 @@ impl Browser {
                 .justify_center()
                 .rounded(px(SEGMENT_CORNER_PX))
                 .cursor_pointer()
-                .text_color(rgba(if selected { tones.text } else { tones.muted }))
+                .text_color(rgba(if selected { colors.text } else { colors.muted }))
                 .when(selected, |segment| {
                     segment
-                        .bg(rgba(tones.card))
+                        .bg(rgba(colors.surface))
                         .font_weight(FontWeight::SEMIBOLD)
                 })
                 .child(SharedString::from(choice.label()));
@@ -390,7 +357,7 @@ impl Browser {
             .flex()
             .gap(px(SEGMENT_INSET_PX))
             .rounded(px(CONTROL_CORNER_PX))
-            .bg(rgba(tones.control))
+            .bg(rgba(colors.raised))
             .children(segments)
     }
 
@@ -405,26 +372,26 @@ impl Browser {
         let toggle = self.toggle(id, state, cx, move |browser, _, cx| {
             browser.change_settings(|settings| set(settings, state.toggled()), cx)
         });
-        self.tones().row(label, toggle)
+        row(label, toggle)
     }
 
     fn tour_header(&self, step: Step, cx: &mut Context<Self>) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         div()
             .flex()
             .items_center()
             .justify_between()
-            .child(tones.dots(step))
+            .child(dots(colors, step))
             .child(self.on_tap(
-                tones.quiet("onboarding-skip", "Skip"),
+                quiet(colors, "onboarding-skip", "Skip"),
                 Self::finish_onboarding,
                 cx,
             ))
     }
 
-    fn footer(&self, label: &'static str, cx: &mut Context<Self>) -> Div {
+    fn tour_footer(&self, label: &'static str, cx: &mut Context<Self>) -> Div {
         let next = self.on_tap(
-            self.tones().primary("onboarding-next", label),
+            primary(self.colors(), "onboarding-next", label),
             Self::advance,
             cx,
         );
@@ -432,7 +399,7 @@ impl Browser {
     }
 
     fn welcome_step(&self, cx: &mut Context<Self>) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         div()
             .py_4()
             .flex()
@@ -448,18 +415,18 @@ impl Browser {
             )
             .child(
                 div()
-                    .text_color(rgba(tones.muted))
+                    .text_color(rgba(colors.muted))
                     .child("Fast, private, distraction-free browsing."),
             )
             .child(div().pt_3().child(self.on_tap(
-                tones.primary("onboarding-start", "Get started"),
+                primary(colors, "onboarding-start", "Get started"),
                 Self::advance,
                 cx,
             )))
     }
 
     fn look_step(&self, cx: &mut Context<Self>) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         let settings = self.settings();
         let layout = settings.layout;
         let theme = self.segments(
@@ -487,23 +454,22 @@ impl Browser {
             .flex()
             .flex_col()
             .gap_4()
-            .child(tones.heading("Look & layout"))
-            .child(tones.field("Theme", theme))
-            .child(tones.field("Sidebar side", side))
-            .child(tones.field("Top bar", top_bar))
-            .child(self.footer("Next", cx))
+            .child(heading("Look & layout"))
+            .child(field(colors, "Theme", theme))
+            .child(field(colors, "Sidebar side", side))
+            .child(field(colors, "Top bar", top_bar))
+            .child(self.tour_footer("Next", cx))
     }
 
     fn engine_picker(&self, cx: &mut Context<Self>) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         let chosen = self.settings().general.search.engine;
         let engines = built_in_engines().enumerate().map(|(index, engine)| {
             let selected = engine == chosen;
-            let chip = tones
-                .secondary(("onboarding-engine", index), engine.label())
+            let chip = secondary(colors, ("onboarding-engine", index), engine.label())
                 .px_3()
                 .when(!selected, |chip| {
-                    chip.bg(rgba(tones.card)).text_color(rgba(tones.muted))
+                    chip.bg(rgba(colors.surface)).text_color(rgba(colors.muted))
                 });
             self.on_tap(
                 chip,
@@ -517,7 +483,7 @@ impl Browser {
     }
 
     fn search_step(&self, cx: &mut Context<Self>) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         let settings = self.settings();
         let protections = div()
             .flex()
@@ -547,27 +513,28 @@ impl Browser {
             .flex()
             .flex_col()
             .gap_4()
-            .child(tones.heading("Search & focus"))
-            .child(tones.field("Search engine", self.engine_picker(cx)))
-            .child(tones.field("Built-in protection", protections))
-            .child(self.footer("Next", cx))
+            .child(heading("Search & focus"))
+            .child(field(colors, "Search engine", self.engine_picker(cx)))
+            .child(field(colors, "Built-in protection", protections))
+            .child(self.tour_footer("Next", cx))
     }
 
     fn import_rows(&self, cx: &mut Context<Self>) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         let rows = div().flex().flex_col();
         let Some(sources) = self
             .onboarding
             .as_ref()
             .and_then(|tour| tour.sources.as_ref())
         else {
-            return rows.child(tones.label("Looking for other browsers…"));
+            return rows.child(label(colors, "Looking for other browsers…"));
         };
         if sources.is_empty() {
-            return rows.child(tones.label("No other browsers found on this PC."));
+            return rows.child(label(colors, "No other browsers found on this PC."));
         }
         rows.children(sources.iter().enumerate().map(|(index, source)| {
-            let button = tones.secondary(
+            let button = secondary(
+                colors,
                 ("onboarding-import", index),
                 progress_label(source.progress),
             );
@@ -576,14 +543,15 @@ impl Browser {
                 move |browser, _, cx| browser.import_source(index, cx),
                 cx,
             );
-            tones.row(source.profile.label(), button)
+            row(source.profile.label(), button)
         }))
     }
 
     fn bring_step(&self, cx: &mut Context<Self>) -> Div {
-        let tones = self.tones();
+        let colors = self.colors();
         let default_browser = self.on_tap(
-            tones.secondary(
+            secondary(
+                colors,
                 "onboarding-default-browser",
                 "Open default browser settings",
             ),
@@ -594,11 +562,19 @@ impl Browser {
             .flex()
             .flex_col()
             .gap_4()
-            .child(tones.heading("Bring your stuff"))
-            .child(tones.label("All optional"))
-            .child(tones.field("Import bookmarks & history", self.import_rows(cx)))
-            .child(tones.field("Default browser", div().flex().child(default_browser)))
-            .child(self.footer("Start browsing", cx))
+            .child(heading("Bring your stuff"))
+            .child(label(colors, "All optional"))
+            .child(field(
+                colors,
+                "Import bookmarks & history",
+                self.import_rows(cx),
+            ))
+            .child(field(
+                colors,
+                "Default browser",
+                div().flex().child(default_browser),
+            ))
+            .child(self.tour_footer("Start browsing", cx))
     }
 
     fn step_body(&self, step: Step, cx: &mut Context<Self>) -> Div {
@@ -612,16 +588,16 @@ impl Browser {
 
     pub(super) fn onboarding_overlay(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
         let step = self.onboarding.as_ref()?.step;
-        let tones = self.tones();
+        let colors = self.colors();
         let card = div()
             .w(px(CARD_WIDTH_PX))
             .p(px(CARD_PADDING_PX))
             .flex()
             .flex_col()
             .gap_4()
-            .rounded(px(CARD_CORNER_PX))
-            .bg(rgba(tones.card))
-            .text_color(rgba(tones.text))
+            .rounded(px(PANEL_CORNER_PX))
+            .bg(rgba(colors.surface))
+            .text_color(rgba(colors.text))
             .shadow_lg()
             .child(self.tour_header(step, cx))
             .child(self.step_body(step, cx));
@@ -632,7 +608,7 @@ impl Browser {
                 .flex()
                 .items_center()
                 .justify_center()
-                .bg(rgba(tones.backdrop))
+                .bg(rgba(colors.scrim))
                 .occlude()
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .child(card),

@@ -13,7 +13,7 @@ use super::{
     icon::Icon,
     session::pane_label,
     space::theme,
-    surface::{Colors, ROW_HEIGHT_PX},
+    surface::{CONTROL_CORNER_PX, Colors, ROW_HEIGHT_PX},
     tab::row_button,
     toolbar::{ADDRESS_HEIGHT_PX, BUTTON_PX, NAVIGATION_WIDTH_PX},
     top_bar::TOP_BAR_HEIGHT_PX,
@@ -74,7 +74,10 @@ fn separator(colors: &Colors) -> Div {
 }
 
 fn sidebar_row(row: Stateful<Div>) -> Stateful<Div> {
-    row.h(px(ROW_HEIGHT_PX)).flex().items_center().rounded_md()
+    row.h(px(ROW_HEIGHT_PX))
+        .flex()
+        .items_center()
+        .rounded(px(CONTROL_CORNER_PX))
 }
 
 fn roomy_row(row: Stateful<Div>, depth: usize) -> Stateful<Div> {
@@ -88,7 +91,7 @@ fn compact_row(row: Stateful<Div>) -> Stateful<Div> {
     sidebar_row(row).justify_center()
 }
 
-fn round_button(id: impl Into<ElementId>) -> Stateful<Div> {
+fn square_button(id: impl Into<ElementId>) -> Stateful<Div> {
     div()
         .id(id)
         .size(px(BUTTON_PX))
@@ -96,7 +99,7 @@ fn round_button(id: impl Into<ElementId>) -> Stateful<Div> {
         .flex_none()
         .items_center()
         .justify_center()
-        .rounded_full()
+        .rounded(px(CONTROL_CORNER_PX))
 }
 
 impl Browser {
@@ -296,7 +299,7 @@ impl Browser {
                     true => text,
                     false => muted,
                 };
-                self.space_drop_zone(round_button(("space", id.0)), id, cx)
+                self.space_drop_zone(square_button(("space", id.0)), id, cx)
                     .when(active, |button| button.bg(rgba(row_active)).shadow_sm())
                     .when(!active, |button| {
                         button.hover(|button| button.bg(rgba(row_hover)))
@@ -315,7 +318,7 @@ impl Browser {
     fn settings_button(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let colors = self.colors();
         let row_hover = colors.row_hover;
-        round_button("sidebar-settings")
+        square_button("sidebar-settings")
             .hover(move |button| button.bg(rgba(row_hover)))
             .on_click(cx.listener(|browser, _, window, cx| browser.toggle_settings(window, cx)))
             .child(Icon::Settings.tinted(rgba(colors.muted)))

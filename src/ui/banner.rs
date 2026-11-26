@@ -1,14 +1,9 @@
-use gpui::{App, ClickEvent, Context, Div, Stateful, Window, prelude::*, px, rgba};
+use gpui::{App, ClickEvent, Context, Div, Stateful, Window, prelude::*, rgba};
 
 use super::{
-    browser::Browser,
-    icon::Icon,
-    password::{Emphasis, FLOAT_CORNER_PX},
+    browser::Browser, icon::Icon, overlay::stack, password::Emphasis, surface::PANEL_CORNER_PX,
 };
 use crate::locale::Text;
-
-const TOP_PX: f32 = 12.0;
-const GAP_PX: f32 = 8.0;
 
 pub(super) type Choose = fn(&mut Browser, &mut Context<Browser>);
 
@@ -53,19 +48,16 @@ impl Browser {
             .children(buttons)
     }
 
-    pub(super) fn banners(&self, cx: &mut Context<Self>) -> Div {
-        self.cutouts
-            .see_through(FLOAT_CORNER_PX)
-            .absolute()
-            .top(px(TOP_PX))
-            .left_0()
-            .right_0()
-            .flex()
-            .flex_col()
-            .items_center()
-            .gap(px(GAP_PX))
-            .children(self.recovery_banner(cx))
-            .children(self.update_banner(cx))
+    pub(super) fn banners(&self, cx: &mut Context<Self>) -> Option<Div> {
+        let banners: Vec<Div> = [self.recovery_banner(cx), self.update_banner(cx)]
+            .into_iter()
+            .flatten()
+            .collect();
+        (!banners.is_empty()).then(|| {
+            stack(self.cutouts.see_through(PANEL_CORNER_PX))
+                .items_center()
+                .children(banners)
+        })
     }
 }
 

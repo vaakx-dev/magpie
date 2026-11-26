@@ -3,14 +3,14 @@ use std::{collections::HashMap, rc::Rc, time::Duration};
 use futures::StreamExt;
 use gpui::{
     AnyElement, App, Context, Div, Entity, EntityId, FocusHandle, Focusable, Hsla, MouseButton,
-    MouseDownEvent, NavigationDirection, Pixels, Point, Subscription, Task, Window, div,
-    prelude::*, px, rgba, transparent_black,
+    MouseDownEvent, NavigationDirection, Subscription, Task, Window, div, prelude::*, px, rgba,
+    transparent_black,
 };
 use url::Url;
 
 use super::{
-    Back, ClosePopover, CloseTab, EditAddress, Find, Forward, NewTab, OpenDevTools, OpenSettings,
-    Print, Reload, SavePage, ShowDownloads, ShowHistory, SplitView, ToggleReader, ToggleSidebar,
+    Back, CloseTab, EditAddress, Find, Forward, NewTab, OpenDevTools, OpenSettings, Print, Reload,
+    SavePage, ShowDownloads, ShowHistory, SplitView, ToggleReader, ToggleSidebar,
     command::{Choice, Command, CommandBar, Lookup, Mode, Options, Outcome, Sources, Target},
     context_menu,
     downloads::{Downloads, open_file, show_in_folder},
@@ -32,7 +32,7 @@ use super::{
     site,
     slide::Slide,
     space,
-    surface::{Colors, PANEL_CORNER_PX, colors},
+    surface::{Colors, PAGE_CORNER_PX, PANEL_CORNER_PX, colors},
     thumbnail::Thumbnails,
     toast::Toast,
     toolbar,
@@ -51,7 +51,7 @@ use crate::{
         session::{Section, Space, TabId},
     },
     system_theme,
-    webview::{self, Backdrop, Corners, Cutouts, Runtime, Transfer, Visibility, WebView},
+    webview::{self, Backdrop, Cutouts, Runtime, Transfer, Visibility, WebView},
 };
 
 const PEEK_ZONE_PX: f32 = 10.0;
@@ -75,8 +75,18 @@ pub struct Passwords {
 pub enum Popover {
     Menu(Vec<Layer>),
     Context(context_menu::Menu),
-    SiteInfo(Point<Pixels>),
+    SiteInfo(site::Info),
     Passwords(Passwords),
+}
+
+impl Popover {
+    fn back(&mut self) -> bool {
+        match self {
+            Popover::Menu(layers) => layers.pop().is_some(),
+            Popover::SiteInfo(info) => info.back(),
+            Popover::Context(_) | Popover::Passwords(_) => false,
+        }
+    }
 }
 
 struct Palette {
@@ -276,7 +286,7 @@ impl Browser {
     }
 
     pub(super) fn backdrop(&self) -> Backdrop {
-        Backdrop::from_rgba(self.colors().page)
+        Backdrop::from_rgba(self.colors().surface)
     }
 
     fn paint_backdrops(&self, cx: &mut Context<Self>) {
@@ -305,6 +315,15 @@ impl Browser {
             .session
             .active_space_mut()
             .expect("the session always has an active space")
+    }
+
+    pub(super) fn shown_views(&self) -> impl Iterator<Item = &Entity<WebView>> {
+        self.current()
+            .active_tab()
+            .and_then(|tab| self.live.get(&tab.id))
+            .into_iter()
+            .flatten()
+            .map(|pane| &pane.view)
     }
 
     pub(super) fn active_view(&self) -> Option<&Entity<WebView>> {
@@ -592,13 +611,16 @@ impl Browser {
         cx.notify();
     }
 
+    pub(super) fn step_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.popover.as_mut().is_some_and(Popover::back) {
+            true => cx.notify(),
+            false => self.dismiss_popover(window, cx),
+        }
+    }
+
     fn release_page_focus(&mut self, _: &MouseDownEvent, _: &mut Window, cx: &mut Context<Self>) {
-        let panes = self
-            .current()
-            .active_tab()
-            .and_then(|tab| self.live.get(&tab.id));
-        for pane in panes.into_iter().flatten() {
-            pane.view.read(cx).blur();
+        for view in self.shown_views() {
+            view.read(cx).blur();
         }
     }
 
@@ -611,10 +633,6 @@ impl Browser {
         if !window.default_prevented() {
             self.focus.focus(window);
         }
-    }
-
-    fn close_popover(&mut self, _: &ClosePopover, window: &mut Window, cx: &mut Context<Self>) {
-        self.dismiss_popover(window, cx);
     }
 
     pub(super) fn new_tab(&mut self, _: &NewTab, window: &mut Window, cx: &mut Context<Self>) {
@@ -701,19 +719,23 @@ impl Browser {
 
     fn panes(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let colors = self.colors();
-        let hint = self.text(Text::WelcomeHint);
-        let Some(tab) = self.current().active_tab() else {
-            return vec![welcome(colors, hint).into_any_element()];
-        };
-        let Some(panes) = self.live.get(&tab.id) else {
-            return vec![welcome(colors, hint).into_any_element()];
+        let mut banners = self.banners(cx);
+        let Some((tab, panes)) = self
+            .current()
+            .active_tab()
+            .and_then(|tab| Some((tab, self.live.get(&tab.id)?)))
+        else {
+            let welcome = welcome(colors, self.text(Text::WelcomeHint))
+                .relative()
+                .child(self.top_overlays(banners, None, cx));
+            return vec![welcome.into_any_element()];
         };
         let split = panes.len() > 1;
         let ring_color = colors.muted;
         let fullscreen = self.fullscreen.active();
-        let corners = match fullscreen {
-            true => Corners::Square,
-            false => Corners::Rounded,
+        let corner_px = match fullscreen {
+            true => 0.0,
+            false => PAGE_CORNER_PX,
         };
         panes
             .iter()
@@ -730,8 +752,9 @@ impl Browser {
                     .h_full()
                     .min_w_0()
                     .overflow_hidden()
-                    .bg(rgba(colors.page))
-                    .when(!fullscreen, |pane| pane.rounded_lg().shadow_sm())
+                    .bg(rgba(colors.surface))
+                    .rounded(px(corner_px))
+                    .when(!fullscreen, |pane| pane.shadow_sm())
                     .when(split && !fullscreen, |pane| {
                         pane.border_1().border_color(ring)
                     })
@@ -742,13 +765,11 @@ impl Browser {
                     .child(webview::surface(
                         pane.view.clone(),
                         self.cutouts.clone(),
-                        corners,
+                        corner_px,
                     ))
                     .children(self.crash_notice(&pane.view, cx))
-                    .children(self.find_card(&pane.view, cx))
-                    .children(self.permission_card(&pane.view, cx))
+                    .child(self.top_overlays(banners.take(), Some(&pane.view), cx))
                     .children(self.login_dropdown(&pane.view, cx))
-                    .children(self.save_toast(&pane.view, cx))
                     .into_any_element()
             })
             .collect()
@@ -780,7 +801,7 @@ impl Browser {
                 anchor.justify_end()
             })
             .child(row)
-            .child(self.banners(cx))
+            .children(self.bottom_overlays(cx))
     }
 
     fn viewport(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -901,7 +922,13 @@ impl Browser {
     }
 
     fn popover_anchor(&self) -> Div {
-        let anchor = self.cutouts.see_through(PANEL_CORNER_PX).absolute();
+        let anchor = self
+            .cutouts
+            .see_through(PANEL_CORNER_PX)
+            .absolute()
+            .bottom(px(INSET_PX))
+            .flex()
+            .flex_col();
         let layout = self.layout();
         match (layout.top_bar, layout.sidebar, self.density()) {
             (Switch::On, _, _) => anchor.top(px(TOP_BAR_HEIGHT_PX)).right(px(INSET_PX)),
@@ -924,10 +951,9 @@ impl Browser {
             cx.listener(|browser, _, window, cx| browser.dismiss_popover(window, cx)),
         );
         Some(match self.popover.as_ref()? {
-            Popover::Menu(layers) => overlay.child(
-                self.popover_anchor()
-                    .child(self.menu(layers.last().copied(), cx)),
-            ),
+            Popover::Menu(layers) => {
+                overlay.child(self.popover_anchor().child(self.menu(layers, cx)))
+            }
             Popover::Passwords(passwords) => {
                 overlay.child(self.popover_anchor().child(passwords.sheet.clone()))
             }
@@ -937,7 +963,7 @@ impl Browser {
                     cx.listener(|browser, _, window, cx| browser.dismiss_popover(window, cx)),
                 )
                 .children(self.context_menu(menu, cx)),
-            Popover::SiteInfo(position) => overlay.children(self.site_info(*position, cx)),
+            Popover::SiteInfo(info) => overlay.children(self.site_info(info, cx)),
         })
     }
 
@@ -962,12 +988,12 @@ impl Browser {
     }
 }
 
-fn welcome(colors: &Colors, hint: &'static str) -> impl IntoElement {
+fn welcome(colors: &Colors, hint: &'static str) -> Div {
     div()
         .flex_1()
         .h_full()
-        .rounded_lg()
-        .bg(rgba(colors.page))
+        .rounded(px(PAGE_CORNER_PX))
+        .bg(rgba(colors.surface))
         .shadow_sm()
         .flex()
         .flex_col()
@@ -1002,6 +1028,7 @@ impl Render for Browser {
         self.follow_sidebar(window);
         self.drop_stale_hover(window);
         self.show_views(cx);
+        self.route_escape(cx);
         let colors = self.colors();
         let chrome = !self.fullscreen.active();
         div()
@@ -1033,7 +1060,7 @@ impl Render for Browser {
             .on_action(cx.listener(Self::reopen_closed_tab))
             .on_action(cx.listener(Self::split_view))
             .on_action(cx.listener(Self::open_settings))
-            .on_action(cx.listener(Self::close_popover))
+            .on_action(cx.listener(Self::dismiss_topmost))
             .on_action(cx.listener(Self::open_find))
             .on_action(cx.listener(Self::zoom_in))
             .on_action(cx.listener(Self::zoom_out))
@@ -1062,7 +1089,6 @@ impl Render for Browser {
                 root.children(self.edge_reveal(window, cx))
                     .children(self.pill_reveal(window, cx))
             })
-            .children(self.download_toast(cx))
             .children(self.popover_overlay(cx))
             .children(self.palette_overlay(cx))
             .children(self.resize_overlay(cx))

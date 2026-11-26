@@ -1,4 +1,4 @@
-use std::{cell::Cell, collections::BTreeSet, rc::Rc};
+use std::{cell::Cell, collections::BTreeSet, mem, rc::Rc};
 
 use gpui::{
     AnyElement, Bounds, ClickEvent, Context, Div, ElementId, Entity, FontWeight, Pixels, Point,
@@ -12,7 +12,7 @@ use super::{
     icon::Icon,
     menu::{divider, heading, line},
     permission::icon,
-    surface::{PANEL_CORNER_PX, panel},
+    surface::{CONTROL_CORNER_PX, PANEL_CORNER_PX, panel, text_button},
 };
 use crate::{
     internal::Page,
@@ -27,8 +27,19 @@ enum Security {
     NotSecure,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Stage {
+    Overview,
+    ConfirmClear,
+}
+
 #[derive(Clone, Default)]
 pub struct Anchor(Rc<Cell<Bounds<Pixels>>>);
+
+pub struct Info {
+    position: Point<Pixels>,
+    stage: Stage,
+}
 
 struct Setting {
     origin: Origin,
@@ -42,8 +53,8 @@ const LOCK_PX: f32 = 22.0;
 const SPACING_PX: f32 = 6.0;
 const WINDOW_MARGIN_PX: f32 = 8.0;
 const CHOICE_HEIGHT_PX: f32 = 22.0;
-const CHOICE_CORNER_PX: f32 = 4.0;
 const CHOICES_PADDING_PX: f32 = 2.0;
+const CHOICE_CORNER_PX: f32 = CONTROL_CORNER_PX - CHOICES_PADDING_PX;
 
 fn security(url: &Url) -> Option<Security> {
     match url.scheme() {
@@ -69,6 +80,12 @@ fn security_text(security: Security) -> (Text, Text) {
 
 fn choice_id(kind: Kind, state: State) -> ElementId {
     SharedString::from(format!("site-{}-{}", kind.name(), state.name())).into()
+}
+
+impl Info {
+    pub fn back(&mut self) -> bool {
+        mem::replace(&mut self.stage, Stage::Overview) == Stage::ConfirmClear
+    }
 }
 
 impl Anchor {
@@ -105,7 +122,7 @@ impl Browser {
 
     fn security_button(&self, security: Security, cx: &mut Context<Self>) -> Stateful<Div> {
         let colors = self.colors();
-        let hover = colors.overlay;
+        let hover = colors.raised_hover;
         let glyph = security_icon(security)
             .tinted(rgba(colors.muted))
             .size(px(ICON_PX));
@@ -115,7 +132,7 @@ impl Browser {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded_full()
+                .rounded(px(CONTROL_CORNER_PX))
                 .child(glyph),
             Security::NotSecure => pill(colors).child(glyph).child(self.text(Text::NotSecure)),
         };
@@ -130,7 +147,10 @@ impl Browser {
     }
 
     fn show_site_info(&mut self, cx: &mut Context<Self>) {
-        self.popover = Some(Popover::SiteInfo(self.site_anchor.below()));
+        self.popover = Some(Popover::SiteInfo(Info {
+            position: self.site_anchor.below(),
+            stage: Stage::Overview,
+        }));
         cx.notify();
     }
 
@@ -207,7 +227,7 @@ impl Browser {
                 .flex_none()
                 .p(px(CHOICES_PADDING_PX))
                 .gap(px(CHOICES_PADDING_PX))
-                .rounded_md()
+                .rounded(px(CONTROL_CORNER_PX))
                 .bg(rgba(colors.raised))
                 .children(choices),
         )
@@ -244,22 +264,72 @@ impl Browser {
         .detach();
     }
 
-    fn clear_site_data_row(&self, view: &Entity<WebView>, cx: &mut Context<Self>) -> Stateful<Div> {
+    fn ask_to_clear(&mut self, cx: &mut Context<Self>) {
+        if let Some(Popover::SiteInfo(info)) = &mut self.popover {
+            info.stage = Stage::ConfirmClear;
+            cx.notify();
+        }
+    }
+
+    fn clear_site_data_row(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let colors = self.colors();
         let hover = colors.overlay;
-        let view = view.clone();
         line(Icon::Trash, self.text(Text::ClearSiteData), colors)
             .id("site-clear-data")
             .cursor_pointer()
             .hover(move |row| row.bg(rgba(hover)))
-            .on_click(cx.listener(move |browser, _: &ClickEvent, window, cx| {
+            .on_click(cx.listener(|browser, _: &ClickEvent, _, cx| browser.ask_to_clear(cx)))
+    }
+
+    fn clear_confirmation(
+        &self,
+        view: &Entity<WebView>,
+        host: &str,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let colors = self.colors();
+        let view = view.clone();
+        let cancel = text_button("site-clear-cancel", self.text(Text::Cancel), colors).on_click(
+            cx.listener(|browser, _: &ClickEvent, window, cx| browser.step_back(window, cx)),
+        );
+        let clear = text_button("site-clear-confirm", self.text(Text::Clear), colors).on_click(
+            cx.listener(move |browser, _: &ClickEvent, window, cx| {
                 browser.clear_site_data(&view, window, cx)
-            }))
+            }),
+        );
+        div()
+            .px_2()
+            .py_1()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(self.locale().fill(Text::ClearSiteDataPrompt, host))
+            .child(
+                div()
+                    .flex()
+                    .justify_end()
+                    .gap_2()
+                    .child(cancel)
+                    .child(clear),
+            )
+    }
+
+    fn clearing(
+        &self,
+        stage: Stage,
+        view: &Entity<WebView>,
+        host: &str,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        match stage {
+            Stage::Overview => self.clear_site_data_row(cx).into_any_element(),
+            Stage::ConfirmClear => self.clear_confirmation(view, host, cx).into_any_element(),
+        }
     }
 
     pub(super) fn site_info(
         &self,
-        position: Point<Pixels>,
+        info: &Info,
         cx: &mut Context<Self>,
     ) -> Option<impl IntoElement> {
         let view = self.active_view()?.clone();
@@ -290,10 +360,10 @@ impl Browser {
                     .children(rows)
             })
             .child(divider(colors))
-            .child(self.clear_site_data_row(&view, cx));
+            .child(self.clearing(info.stage, &view, origin.host(), cx));
         Some(
             anchored()
-                .position(position)
+                .position(info.position)
                 .snap_to_window_with_margin(px(WINDOW_MARGIN_PX))
                 .child(self.cutouts.see_through(PANEL_CORNER_PX).child(card)),
         )

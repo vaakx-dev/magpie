@@ -1,7 +1,7 @@
 use std::{path::Path, time::SystemTime};
 
 use futures::{StreamExt, channel::mpsc::unbounded};
-use gpui::{App, AppContext, Context, Entity, prelude::*};
+use gpui::{App, AppContext, Context, Div, Entity};
 
 use super::{browser::Browser, window};
 use crate::{
@@ -185,11 +185,15 @@ impl Browser {
         self.show_settings(Section::About, cx);
     }
 
-    fn dismiss_update(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn dismiss_update(&mut self, cx: &mut Context<Self>) {
         updater(cx).update(cx, Updater::dismiss);
     }
 
-    pub(super) fn update_banner(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+    pub(super) fn update_announced(&self, cx: &App) -> bool {
+        updater(cx).read(cx).announcement().is_some()
+    }
+
+    pub(super) fn update_banner(&self, cx: &mut Context<Self>) -> Option<Div> {
         let message = updater(cx)
             .read(cx)
             .announcement()

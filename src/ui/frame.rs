@@ -1,9 +1,9 @@
 use gpui::{
     AnyElement, Div, Font, FontFallbacks, Stateful, Window, WindowControlArea, div, font,
-    prelude::*, px, rgb, rgba, transparent_black,
+    prelude::*, px, rgba, transparent_black,
 };
 
-use super::surface::Colors;
+use super::surface::{CONTROL_CORNER_PX, Colors};
 use crate::config::{ControlStyle, Controls, Side};
 
 pub const INSET_PX: f32 = 6.0;
@@ -16,10 +16,6 @@ const LIGHT_SLOT_PX: f32 = 20.0;
 const LIGHT_PX: f32 = 12.0;
 const LIGHT_SYMBOL_PX: f32 = 7.0;
 const CONTROLS_GROUP: &str = "window-controls";
-const LIGHT_CLOSE: u32 = 0xff5f57;
-const LIGHT_MINIMIZE: u32 = 0xfebc2e;
-const LIGHT_MAXIMIZE: u32 = 0x28c840;
-const LIGHT_SYMBOL: u32 = 0x00000099;
 const LIGHT_PRESSED_OPACITY: f32 = 0.75;
 const ADD: &str = "\u{E710}";
 const CAPTION_FONT: &str = "Segoe Fluent Icons";
@@ -28,10 +24,6 @@ const MINIMIZE: &str = "\u{E921}";
 const MAXIMIZE: &str = "\u{E922}";
 const RESTORE: &str = "\u{E923}";
 const CLOSE: &str = "\u{E8BB}";
-const CLOSE_HOVER: u32 = 0xc42b1c;
-const CLOSE_PRESSED: u32 = 0xc42b1ce6;
-const CLOSE_GLYPH: u32 = 0xffffff;
-const CLOSE_PRESSED_GLYPH: u32 = 0xffffffb3;
 
 #[derive(Clone, Copy)]
 pub enum Flow {
@@ -56,6 +48,7 @@ fn button(id: &'static str, area: WindowControlArea, glyph: &'static str) -> Sta
         .flex()
         .items_center()
         .justify_center()
+        .rounded(px(CONTROL_CORNER_PX))
         .font(caption_font())
         .text_size(px(GLYPH_PX))
         .window_control_area(area)
@@ -74,16 +67,6 @@ fn caption(
         .active(move |button| button.bg(rgba(pressed)))
 }
 
-fn close() -> Stateful<Div> {
-    button("close-window", WindowControlArea::Close, CLOSE)
-        .hover(|button| button.bg(rgb(CLOSE_HOVER)).text_color(rgb(CLOSE_GLYPH)))
-        .active(|button| {
-            button
-                .bg(rgba(CLOSE_PRESSED))
-                .text_color(rgba(CLOSE_PRESSED_GLYPH))
-        })
-}
-
 fn windows_buttons(colors: &Colors, window: &Window) -> [Stateful<Div>; 3] {
     let maximize = match window.is_maximized() {
         true => RESTORE,
@@ -92,27 +75,30 @@ fn windows_buttons(colors: &Colors, window: &Window) -> [Stateful<Div>; 3] {
     [
         caption("minimize", WindowControlArea::Min, MINIMIZE, colors),
         caption("maximize", WindowControlArea::Max, maximize, colors),
-        close(),
+        caption("close-window", WindowControlArea::Close, CLOSE, colors),
     ]
 }
 
 fn light(
     id: &'static str,
     area: WindowControlArea,
-    color: u32,
     symbol: &'static str,
+    colors: &Colors,
 ) -> Stateful<Div> {
+    let symbol_color = colors.on_text;
     let dot = div()
         .size(px(LIGHT_PX))
         .flex()
         .items_center()
         .justify_center()
         .rounded_full()
-        .bg(rgb(color))
+        .bg(rgba(colors.muted))
         .font(caption_font())
         .text_size(px(LIGHT_SYMBOL_PX))
         .text_color(transparent_black())
-        .group_hover(CONTROLS_GROUP, |dot| dot.text_color(rgba(LIGHT_SYMBOL)))
+        .group_hover(CONTROLS_GROUP, move |dot| {
+            dot.text_color(rgba(symbol_color))
+        })
         .child(symbol);
     div()
         .id(id)
@@ -127,11 +113,11 @@ fn light(
         .child(dot)
 }
 
-fn mac_buttons() -> [Stateful<Div>; 3] {
+fn mac_buttons(colors: &Colors) -> [Stateful<Div>; 3] {
     [
-        light("close-window", WindowControlArea::Close, LIGHT_CLOSE, CLOSE),
-        light("minimize", WindowControlArea::Min, LIGHT_MINIMIZE, MINIMIZE),
-        light("maximize", WindowControlArea::Max, LIGHT_MAXIMIZE, ADD),
+        light("close-window", WindowControlArea::Close, CLOSE, colors),
+        light("minimize", WindowControlArea::Min, MINIMIZE, colors),
+        light("maximize", WindowControlArea::Max, ADD, colors),
     ]
 }
 
@@ -152,7 +138,7 @@ pub fn controls_width_px(style: ControlStyle) -> f32 {
 pub fn controls(controls: Controls, flow: Flow, colors: &Colors, window: &Window) -> Div {
     let mut buttons = match controls.style {
         ControlStyle::Windows => windows_buttons(colors, window),
-        ControlStyle::Mac => mac_buttons(),
+        ControlStyle::Mac => mac_buttons(colors),
     };
     if controls.side != home_side(controls.style) {
         buttons.reverse();

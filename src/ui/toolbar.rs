@@ -13,7 +13,7 @@ use super::{
     icon::Icon,
     password::Phase,
     sidebar::Density,
-    surface::{Colors, tint},
+    surface::{CONTROL_CORNER_PX, Colors, tint},
     window,
 };
 use crate::{
@@ -74,7 +74,7 @@ fn plain_button(id: impl Into<ElementId>, icon: Icon, color: Hsla) -> Stateful<D
         .flex()
         .items_center()
         .justify_center()
-        .rounded_md()
+        .rounded(px(CONTROL_CORNER_PX))
         .child(icon.tinted(color))
 }
 
@@ -275,7 +275,6 @@ impl Browser {
             .on_action(cx.listener(Self::navigate))
             .on_action(cx.listener(Self::cancel_edit))
             .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
-            .bg(rgba(self.colors().field_hover))
             .border_color(tint(self.colors().muted, EDIT_RING_ALPHA))
             .child(
                 div()
@@ -295,8 +294,8 @@ impl Browser {
             shown_address,
         );
         let colors = self.colors();
-        let field_hover = colors.field_hover;
-        bar.hover(move |bar| bar.bg(rgba(field_hover)))
+        let hover = colors.surface_hover;
+        bar.hover(move |bar| bar.bg(rgba(hover)))
             .cursor_text()
             .on_click(
                 cx.listener(|browser, _: &ClickEvent, window, cx| browser.edit_address(window, cx)),
@@ -324,10 +323,10 @@ impl Browser {
             .flex()
             .items_center()
             .gap_2()
-            .rounded_lg()
+            .rounded(px(CONTROL_CORNER_PX))
             .border_1()
             .border_color(transparent_black())
-            .bg(rgba(self.colors().field));
+            .bg(rgba(self.colors().surface));
         match &self.address_edit {
             Some(edit) => self.address_editor(bar, edit, cx),
             None => self.address_display(bar, cx),

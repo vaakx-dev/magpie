@@ -9,7 +9,7 @@ use super::{
     favicon::site_icon,
     icon::Icon,
     sidebar::tab_title,
-    surface::{Colors, PANEL_PADDING_PX, ROW_HEIGHT_PX, panel, tint},
+    surface::{CONTROL_CORNER_PX, Colors, PANEL_PADDING_PX, ROW_HEIGHT_PX, panel, tint},
     toolbar::{BUTTON_PX, icon_button},
 };
 use crate::{
@@ -309,7 +309,7 @@ fn zoom_level(zoom: Zoom, colors: &Colors) -> Stateful<Div> {
         .flex()
         .items_center()
         .justify_center()
-        .rounded_md()
+        .rounded(px(CONTROL_CORNER_PX))
         .hover(move |level| level.bg(rgba(hover)))
         .child(zoom.to_string())
 }
@@ -321,7 +321,7 @@ fn entry(leading: impl IntoElement, label: impl Into<SharedString>) -> Div {
         .flex()
         .items_center()
         .gap_2()
-        .rounded_md()
+        .rounded(px(CONTROL_CORNER_PX))
         .child(leading)
         .child(div().flex_1().min_w_0().truncate().child(label.into()))
 }
@@ -376,14 +376,6 @@ impl Browser {
         cx.notify();
     }
 
-    fn leave(&mut self, cx: &mut Context<Self>) {
-        let Some(Popover::Menu(layers)) = &mut self.popover else {
-            return;
-        };
-        layers.pop();
-        cx.notify();
-    }
-
     fn pick(
         &self,
         row: Stateful<Div>,
@@ -423,7 +415,7 @@ impl Browser {
     fn layer_header(&self, title: impl Into<SharedString>, cx: &mut Context<Self>) -> Div {
         let back = icon_button("menu-back", Icon::ChevronLeft, self.colors())
             .cursor_pointer()
-            .on_click(cx.listener(|browser, _, _, cx| browser.leave(cx)));
+            .on_click(cx.listener(|browser, _, window, cx| browser.step_back(window, cx)));
         let title = div()
             .flex_1()
             .min_w_0()
@@ -693,7 +685,7 @@ impl Browser {
         }
     }
 
-    pub(super) fn menu(&self, layer: Option<Layer>, cx: &mut Context<Self>) -> Div {
+    fn layer_view(&self, layer: Option<Layer>, cx: &mut Context<Self>) -> Div {
         match layer {
             None => self.root_view(cx),
             Some(Layer::History) => self.history_view(cx),
@@ -701,5 +693,12 @@ impl Browser {
             Some(Layer::Bookmarks) => self.bookmarks_view(cx),
             Some(Layer::Folder(id)) => self.folder_view(id, cx),
         }
+    }
+
+    pub(super) fn menu(&self, layers: &[Layer], cx: &mut Context<Self>) -> Stateful<Div> {
+        self.layer_view(layers.last().copied(), cx)
+            .id(("menu", layers.len()))
+            .max_h_full()
+            .overflow_y_scroll()
     }
 }

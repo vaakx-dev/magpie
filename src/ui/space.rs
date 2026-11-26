@@ -1,5 +1,3 @@
-use gpui::{Hsla, rgb};
-
 use super::icon::Icon;
 
 use crate::storage::session::{Link, Session, Space, SpaceId};
@@ -43,8 +41,6 @@ const FAVORITES: [(&str, &str); 2] = [
     ("Magpie", "https://github.com/vaakx-dev/magpie"),
 ];
 
-const FAVORITE_COLORS: [u32; 6] = [0x8c959f, 0xff6600, 0xe0703a, 0xe5484d, 0x4c8df6, 0x2a9d8f];
-
 pub fn theme(space: &Space) -> &'static Theme {
     THEMES
         .iter()
@@ -54,13 +50,6 @@ pub fn theme(space: &Space) -> &'static Theme {
 
 pub fn space(id: SpaceId, theme: &Theme) -> Space {
     Space::new(id, theme.name, theme.name)
-}
-
-pub fn favorite_color(link: &Link) -> Hsla {
-    let hash = link.url.bytes().fold(0usize, |hash, byte| {
-        hash.wrapping_mul(31).wrapping_add(usize::from(byte))
-    });
-    rgb(FAVORITE_COLORS[hash % FAVORITE_COLORS.len()]).into()
 }
 
 fn default_favorites() -> Vec<Link> {

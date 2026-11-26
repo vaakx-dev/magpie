@@ -11,7 +11,7 @@ use super::{
     favicon::{Favicons, site_icon},
     field::{Changed, Field},
     icon::Icon,
-    surface::{Colors, PANEL_CORNER_PX, PANEL_PADDING_PX, surface, tint},
+    surface::{CONTROL_CORNER_PX, Colors, PANEL_CORNER_PX, PANEL_PADDING_PX, surface, tint},
     toolbar::icon_button,
 };
 use crate::{
@@ -466,7 +466,7 @@ impl CommandBar {
             .px_2()
             .py_1()
             .text_size(px(ROW_TEXT_PX))
-            .rounded_md()
+            .rounded(px(CONTROL_CORNER_PX))
             .when(selected, |row| row.bg(tint(ink, 0x2e)))
             .hover(|row| row.bg(tint(ink, 0x1a)))
             .when_some(item.choice, |row, choice| {
@@ -511,7 +511,7 @@ impl CommandBar {
                         .id("downloads-clear")
                         .px_2()
                         .py_0p5()
-                        .rounded_md()
+                        .rounded(px(CONTROL_CORNER_PX))
                         .hover(|button| button.bg(rgba(colors.overlay)))
                         .cursor_pointer()
                         .on_click(cx.listener(|bar, _, _, cx| bar.clear_downloads(cx)))
@@ -557,8 +557,8 @@ impl Render for CommandBar {
                     .py_1p5()
                     .mb_0p5()
                     .text_size(px(INPUT_TEXT_PX))
-                    .border_b_1()
-                    .border_color(rgba(colors.line))
+                    .rounded(px(CONTROL_CORNER_PX))
+                    .bg(rgba(colors.raised))
                     .child(self.field.clone()),
             )
             .children(header)

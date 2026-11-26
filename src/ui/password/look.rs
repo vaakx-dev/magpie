@@ -6,7 +6,7 @@ use gpui::{
 use super::keyring::Problem;
 use crate::{
     locale::{Locale, Text},
-    ui::surface::{Colors, surface, tint},
+    ui::surface::{CONTROL_CORNER_PX, Colors, PANEL_CORNER_PX, surface, tint},
 };
 use magpie_engine::bitwarden::Login;
 
@@ -22,16 +22,13 @@ pub enum Emphasis {
     Secondary,
 }
 
-pub const FLOAT_CORNER_PX: f32 = 12.0;
 pub const MASKED_PASSWORD: &str = "••••••••";
-const CONTROL_CORNER_PX: f32 = 8.0;
 const BUTTON_HEIGHT_PX: f32 = 30.0;
 const ICON_BUTTON_PX: f32 = 30.0;
 const AVATAR_PX: f32 = 32.0;
 const ROW_INSET_PX: f32 = 4.0;
 const PRIMARY_HOVER_OPACITY: f32 = 0.9;
 const AVATAR_ALPHA: u8 = 0x12;
-const PROBLEM_BACKGROUND: u32 = 0xd9304226;
 
 pub fn login_name(login: &Login) -> &str {
     login
@@ -52,7 +49,7 @@ impl Look {
 
     pub fn float(&self) -> Div {
         surface(self.colors)
-            .rounded(px(FLOAT_CORNER_PX))
+            .rounded(px(PANEL_CORNER_PX))
             .py_1()
             .flex()
             .flex_col()
@@ -67,7 +64,7 @@ impl Look {
         emphasis: Emphasis,
     ) -> Stateful<Div> {
         let colors = self.colors;
-        let hover = colors.overlay;
+        let hover = colors.raised_hover;
         let button = div()
             .id(id)
             .h(px(BUTTON_HEIGHT_PX))
@@ -191,7 +188,7 @@ impl Look {
                 .py_1()
                 .rounded(px(CONTROL_CORNER_PX))
                 .text_xs()
-                .bg(rgba(PROBLEM_BACKGROUND))
+                .bg(rgba(self.colors.raised))
                 .child(message),
         )
     }

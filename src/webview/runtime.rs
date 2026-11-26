@@ -1,5 +1,5 @@
 use std::{
-    cell::{Ref, RefCell},
+    cell::{Cell, Ref, RefCell},
     collections::{BTreeMap, HashMap, HashSet},
     future::Future,
     path::{Path, PathBuf},
@@ -59,6 +59,7 @@ use magpie_engine::{
 };
 
 const CONTAINER_CLASS: PCWSTR = w!("MagpieViewport");
+const ESCAPE: &str = "escape";
 
 type SharedProfile = Shared<LocalBoxFuture<'static, Result<Rc<Profile>>>>;
 type Launch = Shared<LocalBoxFuture<'static, Result<ICoreWebView2Environment10>>>;
@@ -71,6 +72,13 @@ enum Partition {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Generation(u64);
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum Escape {
+    #[default]
+    Page,
+    Shell,
+}
 
 #[derive(Clone)]
 struct Running {
@@ -118,6 +126,7 @@ pub struct Runtime {
     shield: Arc<Shield>,
     sponsorblock: Arc<sponsorblock::Client>,
     shortcuts: Vec<KeyBinding>,
+    escape: Cell<Escape>,
     zooms: Rc<RefCell<Zooms>>,
     permissions: Rc<RefCell<Permissions>>,
 }
@@ -331,6 +340,7 @@ impl Runtime {
             shield: setup.shield,
             sponsorblock: Arc::default(),
             shortcuts: setup.shortcuts,
+            escape: Cell::default(),
             zooms: setup.zooms,
             permissions: setup.permissions,
         };
@@ -539,10 +549,21 @@ impl Runtime {
         unsafe { SetFocus(Some(self.parent)) }.ok();
     }
 
+    pub fn route_escape(&self, escape: Escape) {
+        self.escape.set(escape);
+    }
+
+    fn claims_escape(&self, keystroke: &Keystroke) -> bool {
+        self.escape.get() == Escape::Shell
+            && keystroke.key == ESCAPE
+            && !keystroke.modifiers.modified()
+    }
+
     pub(super) fn handles(&self, keystroke: &Keystroke) -> bool {
-        self.shortcuts
-            .iter()
-            .any(|binding| binding.match_keystrokes(std::slice::from_ref(keystroke)) == Some(false))
+        self.claims_escape(keystroke)
+            || self.shortcuts.iter().any(|binding| {
+                binding.match_keystrokes(std::slice::from_ref(keystroke)) == Some(false)
+            })
     }
 
     pub fn window(&self) -> AnyWindowHandle {

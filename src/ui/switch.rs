@@ -6,7 +6,6 @@ use crate::config::Switch;
 const WIDTH_PX: f32 = 36.0;
 const HEIGHT_PX: f32 = 20.0;
 const KNOB_PX: f32 = 16.0;
-const KNOB_OFF: u32 = 0xffffffff;
 
 impl Browser {
     pub(super) fn toggle(
@@ -17,9 +16,9 @@ impl Browser {
         action: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
     ) -> Stateful<Div> {
         let colors = self.colors();
-        let (track, knob) = match state {
-            Switch::On => (colors.text, colors.on_text),
-            Switch::Off => (colors.switch_off, KNOB_OFF),
+        let track = match state {
+            Switch::On => colors.text,
+            Switch::Off => colors.switch_off,
         };
         div()
             .id(id.into())
@@ -41,7 +40,7 @@ impl Browser {
                 div()
                     .size(px(KNOB_PX))
                     .rounded_full()
-                    .bg(rgba(knob))
+                    .bg(rgba(colors.on_text))
                     .shadow_sm(),
             )
     }

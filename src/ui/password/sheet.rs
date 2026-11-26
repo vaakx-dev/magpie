@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     locale::Text,
-    ui::{field::Field, icon::Icon},
+    ui::{field::Field, icon::Icon, surface::CONTROL_CORNER_PX},
     webview::{WebView, autofill::fillable},
 };
 use magpie_engine::{
@@ -48,7 +48,6 @@ pub struct Sheet {
 const CONTEXT: &str = "Passwords";
 const WIDTH_PX: f32 = 340.0;
 const INPUT_HEIGHT_PX: f32 = 32.0;
-const INPUT_CORNER_PX: f32 = 8.0;
 const TICK: Duration = Duration::from_secs(1);
 
 pub fn bindings() -> Vec<KeyBinding> {
@@ -197,7 +196,7 @@ impl Sheet {
             .px_3()
             .flex()
             .items_center()
-            .rounded(px(INPUT_CORNER_PX))
+            .rounded(px(CONTROL_CORNER_PX))
             .bg(rgba(self.look.colors.raised))
             .cursor_text()
             .on_mouse_down(MouseButton::Left, move |_, window, _| focus.focus(window))
@@ -328,7 +327,7 @@ impl Sheet {
             .flex()
             .items_center()
             .gap_1p5()
-            .rounded(px(INPUT_CORNER_PX))
+            .rounded(px(CONTROL_CORNER_PX))
             .bg(rgba(look.colors.raised))
             .child(
                 div()

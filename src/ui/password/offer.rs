@@ -3,12 +3,12 @@ use zeroize::Zeroizing;
 
 use super::{
     keyring::{Entry, Phase},
-    look::{Emphasis, FLOAT_CORNER_PX},
+    look::Emphasis,
     unlock::AfterUnlock,
 };
 use crate::{
     locale::Text,
-    ui::{browser::Browser, icon::Icon, window},
+    ui::{browser::Browser, icon::Icon, surface::PANEL_CORNER_PX, window},
     webview::{WebView, autofill::Submission},
 };
 use magpie_engine::{
@@ -30,7 +30,6 @@ pub struct Offer {
 }
 
 const WIDTH_PX: f32 = 310.0;
-const INSET_PX: f32 = 12.0;
 
 fn same_password(login: &Login, submission: &Submission) -> bool {
     login.password.as_deref() == Some(submission.password.as_str())
@@ -51,8 +50,12 @@ fn change_for(logins: &[&Login], submission: &Submission) -> Option<Change> {
 }
 
 impl Offer {
-    fn repeats(&self, view: &Entity<WebView>, submission: &Submission) -> bool {
+    pub fn on(&self, view: &Entity<WebView>) -> bool {
         self.view == view.downgrade()
+    }
+
+    fn repeats(&self, view: &Entity<WebView>, submission: &Submission) -> bool {
+        self.on(view)
             && self.submission.page.origin() == submission.page.origin()
             && self.submission.username == submission.username
             && self.submission.password == submission.password
@@ -149,7 +152,7 @@ impl Browser {
         cx.notify();
     }
 
-    fn dismiss_offer(&mut self, cx: &mut Context<Self>) {
+    pub(in crate::ui) fn dismiss_offer(&mut self, cx: &mut Context<Self>) {
         self.offer = None;
         cx.notify();
     }
@@ -159,10 +162,7 @@ impl Browser {
         view: &Entity<WebView>,
         cx: &mut Context<Self>,
     ) -> Option<impl IntoElement> {
-        let offer = self
-            .offer
-            .as_ref()
-            .filter(|offer| offer.view == view.downgrade())?;
+        let offer = self.offer.as_ref().filter(|offer| offer.on(view))?;
         let look = self.look();
         let colors = look.colors;
         let place = site(&offer.submission.page).unwrap_or_default();
@@ -205,13 +205,6 @@ impl Browser {
             .gap_3()
             .child(heading)
             .child(actions);
-        Some(
-            self.cutouts
-                .see_through(FLOAT_CORNER_PX)
-                .absolute()
-                .top(px(INSET_PX))
-                .right(px(INSET_PX))
-                .child(card),
-        )
+        Some(self.cutouts.see_through(PANEL_CORNER_PX).child(card))
     }
 }

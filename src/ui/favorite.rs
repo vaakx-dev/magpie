@@ -9,8 +9,7 @@ use super::{
     favicon::site_icon,
     field::{Changed, Field},
     frame::INSET_PX,
-    space::favorite_color,
-    surface::{PANEL_CORNER_PX, ROW_HEIGHT_PX, surface},
+    surface::{CONTROL_CORNER_PX, PANEL_CORNER_PX, ROW_HEIGHT_PX, surface},
 };
 use crate::{
     address::address,
@@ -21,11 +20,8 @@ use crate::{
 actions!(favorite, [SaveEdit, CancelEdit, SwitchField]);
 
 const CONTEXT: &str = "FavoriteEdit";
-const EDITOR_CORNER_PX: f32 = 12.0;
-const EDITOR_FIELD_CORNER_PX: f32 = 8.0;
 const LABEL_GAP_PX: f32 = 4.0;
 const LABEL_MAX_WIDTH_PX: f32 = 240.0;
-const LABEL_CORNER_PX: f32 = 6.0;
 const WINDOW_MARGIN_PX: f32 = 8.0;
 
 pub struct Edit {
@@ -183,14 +179,14 @@ impl Browser {
             .max_w(px(LABEL_MAX_WIDTH_PX))
             .px_2()
             .py_0p5()
-            .rounded(px(LABEL_CORNER_PX))
+            .rounded(px(CONTROL_CORNER_PX))
             .text_xs()
             .truncate()
             .child(name.to_owned());
         let floating = anchored()
             .offset(point(px(0.0), px(LABEL_GAP_PX)))
             .snap_to_window_with_margin(px(WINDOW_MARGIN_PX))
-            .child(self.cutouts.see_through(PANEL_CORNER_PX).child(label));
+            .child(self.cutouts.see_through(CONTROL_CORNER_PX).child(label));
         div()
             .absolute()
             .top_full()
@@ -203,10 +199,10 @@ impl Browser {
 
     fn tile(&self, index: usize, link: &Link, cx: &mut Context<Self>) -> AnyElement {
         let colors = self.colors();
-        let (tile, tile_hover) = (colors.tile, colors.tile_hover);
+        let (rest, hover) = (colors.surface, colors.surface_hover);
         let background = match self.tiles.editing(link) {
-            true => tile_hover,
-            false => tile,
+            true => hover,
+            false => rest,
         };
         let name = self
             .name_shown(index, link, cx)
@@ -217,9 +213,9 @@ impl Browser {
             .flex()
             .items_center()
             .justify_center()
-            .rounded_lg()
+            .rounded(px(CONTROL_CORNER_PX))
             .bg(rgba(background))
-            .hover(move |style| style.bg(rgba(tile_hover)))
+            .hover(move |style| style.bg(rgba(hover)))
             .on_hover(cx.listener(move |browser, hovered: &bool, _, cx| {
                 browser.hover_favorite(index, *hovered, cx)
             }))
@@ -228,12 +224,7 @@ impl Browser {
                 MouseButton::Right,
                 self.context_menu_opener(Target::Favorite(index), cx),
             )
-            .child(site_icon(
-                &self.favicons,
-                &link.url,
-                favorite_color(link),
-                cx,
-            ))
+            .child(site_icon(&self.favicons, &link.url, rgba(colors.muted), cx))
             .children(name)
             .into_any_element()
     }
@@ -244,8 +235,8 @@ impl Browser {
             .px_2()
             .flex()
             .items_center()
-            .rounded(px(EDITOR_FIELD_CORNER_PX))
-            .bg(rgba(self.colors().field_hover))
+            .rounded(px(CONTROL_CORNER_PX))
+            .bg(rgba(self.colors().raised))
             .text_color(rgba(text_color))
             .child(
                 div()
@@ -273,8 +264,8 @@ impl Browser {
             .flex()
             .flex_col()
             .gap_1()
-            .rounded(px(EDITOR_CORNER_PX))
-            .bg(rgba(colors.field))
+            .rounded(px(PANEL_CORNER_PX))
+            .bg(rgba(colors.surface))
             .child(self.editor_field(&edit.title, colors.text))
             .child(self.editor_field(&edit.address, address_color))
     }

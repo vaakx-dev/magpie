@@ -8,7 +8,7 @@ use super::{
     browser::Browser,
     field::{Changed, Field},
     icon::Icon,
-    surface::PANEL_CORNER_PX,
+    surface::{PANEL_CORNER_PX, surface},
     toolbar::icon_button,
 };
 use crate::{locale::Text, webview::WebView};
@@ -24,8 +24,6 @@ pub struct Card {
 const CONTEXT: &str = "Find";
 const WIDTH_PX: f32 = 380.0;
 const HEIGHT_PX: f32 = 36.0;
-const TOP_PX: f32 = 8.0;
-const RIGHT_PX: f32 = 24.0;
 const COUNTER_WIDTH_PX: f32 = 72.0;
 
 pub fn bindings() -> Vec<KeyBinding> {
@@ -98,7 +96,12 @@ impl Browser {
         }
     }
 
-    fn close_find(&mut self, _: &CloseFind, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn close_find(
+        &mut self,
+        _: &CloseFind,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.stop_find(cx);
         self.focus.focus(window);
         cx.notify();
@@ -126,7 +129,7 @@ impl Browser {
         let muted = rgba(colors.muted);
         let field = card.field.clone();
         let focused = field.focus_handle(cx);
-        let bar = div()
+        let bar = surface(colors)
             .key_context(CONTEXT)
             .on_action(cx.listener(Self::find_next))
             .on_action(cx.listener(Self::find_previous))
@@ -140,9 +143,6 @@ impl Browser {
             .pl_3()
             .pr_1()
             .rounded(px(PANEL_CORNER_PX))
-            .bg(rgba(colors.surface))
-            .border_1()
-            .border_color(rgba(colors.line))
             .child(Icon::Search.tinted(muted))
             .child(div().flex_1().min_w_0().px_1().child(field))
             .child(
@@ -167,13 +167,6 @@ impl Browser {
             .child(icon_button("find-close", Icon::X, colors).on_click(
                 cx.listener(|browser, _, window, cx| browser.close_find(&CloseFind, window, cx)),
             ));
-        Some(
-            self.cutouts
-                .see_through(PANEL_CORNER_PX)
-                .absolute()
-                .top(px(TOP_PX))
-                .right(px(RIGHT_PX))
-                .child(bar),
-        )
+        Some(self.cutouts.see_through(PANEL_CORNER_PX).child(bar))
     }
 }
