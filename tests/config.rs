@@ -5,7 +5,7 @@ use magpie::{
     sponsorblock::{self, Category},
     zoom::Zoom,
 };
-use magpie_engine::update::Repo;
+use magpie_engine::update::{Channel, Repo};
 use url::Url;
 
 use magpie::config::{
@@ -68,6 +68,7 @@ fn custom_settings() -> Settings {
     };
     settings.updates = Updates {
         automatic: Switch::Off,
+        channel: Channel::Nightly,
         repo: Repo::parse("example/magpie"),
     };
     settings
@@ -127,6 +128,7 @@ fn fresh_settings_use_the_defaults() {
     assert_eq!(settings.privacy.https_only, Switch::Off);
     assert_eq!(settings.dark_mode.enabled, Switch::Off);
     assert_eq!(settings.updates.automatic, Switch::On);
+    assert_eq!(settings.updates.channel, Channel::Stable);
     assert_eq!(settings.updates.source(), Repo::default());
 }
 

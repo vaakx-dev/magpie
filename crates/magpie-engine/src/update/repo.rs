@@ -1,5 +1,7 @@
 use std::fmt;
 
+use super::Channel;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Repo {
     owner: String,
@@ -8,6 +10,7 @@ pub struct Repo {
 
 const MAGPIE_OWNER: &str = "vaakx-dev";
 const MAGPIE_NAME: &str = "magpie";
+const NIGHTLY_TAG: &str = "nightly";
 
 fn part(text: &str) -> Option<String> {
     let allowed = |character: char| character.is_ascii_alphanumeric() || "-_.".contains(character);
@@ -24,9 +27,13 @@ impl Repo {
         })
     }
 
-    pub fn latest_release_url(&self) -> String {
+    pub fn release_url(&self, channel: Channel) -> String {
+        let release = match channel {
+            Channel::Stable => "latest".to_owned(),
+            Channel::Nightly => format!("tags/{NIGHTLY_TAG}"),
+        };
         format!(
-            "https://api.github.com/repos/{}/{}/releases/latest",
+            "https://api.github.com/repos/{}/{}/releases/{release}",
             self.owner, self.name
         )
     }

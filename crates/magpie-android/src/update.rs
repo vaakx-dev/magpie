@@ -1,6 +1,8 @@
 use std::{path::Path, time::SystemTime};
 
-use magpie_engine::update::{Platform, Repo, Request, Schedule, Status, Version, check, fetch};
+use magpie_engine::update::{
+    Channel, Platform, Repo, Request, Schedule, Status, Version, check, fetch,
+};
 
 const SCHEDULE_FILE: &str = "update-check";
 const ABI_SEPARATOR: char = ',';
@@ -17,7 +19,7 @@ fn abis(list: &str) -> Vec<String> {
         .collect()
 }
 
-fn status(version: &str, abis: &[String]) -> Status {
+fn status(version: &str, abis: &[String], channel: Channel) -> Status {
     let Some(current) = Version::parse(version) else {
         return Status::Failed {
             message: format!("Version {version} isn't a release version"),
@@ -27,6 +29,7 @@ fn status(version: &str, abis: &[String]) -> Status {
         repo: &Repo::default(),
         current: &current,
         platform: Platform::Android { abis },
+        channel,
     };
     check(&request, fetch)
 }
@@ -35,8 +38,9 @@ pub fn due(data_dir: &Path) -> bool {
     schedule(data_dir).due(SystemTime::now())
 }
 
-pub fn latest(data_dir: &Path, version: &str, abi_list: &str) -> String {
-    let status = status(version, &abis(abi_list));
+pub fn latest(data_dir: &Path, version: &str, abi_list: &str, channel: &str) -> String {
+    let channel = Channel::parse(channel).unwrap_or_default();
+    let status = status(version, &abis(abi_list), channel);
     schedule(data_dir).record(SystemTime::now()).ok();
     serde_json::to_string(&status).expect("update statuses serialize to JSON")
 }

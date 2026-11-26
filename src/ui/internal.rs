@@ -249,6 +249,19 @@ impl Browser {
         }
     }
 
+    fn check_for_updates(&mut self, cx: &mut Context<Self>) {
+        let updates = self.settings().updates.clone();
+        updater(cx).update(cx, |updater, cx| updater.check(&updates, cx))
+    }
+
+    fn set_setting(&mut self, key: &str, value: &str, cx: &mut Context<Self>) {
+        let channel = self.settings().updates.channel;
+        self.change_settings(|settings| settings.set(key, value), cx);
+        if self.settings().updates.channel != channel {
+            self.check_for_updates(cx);
+        }
+    }
+
     fn answer_settings(
         &mut self,
         view: WeakEntity<WebView>,
@@ -257,9 +270,7 @@ impl Browser {
     ) {
         match message {
             settings::Message::Ready => self.greet_settings(view, cx),
-            settings::Message::SetSetting { key, value } => {
-                self.change_settings(|settings| settings.set(&key, &value), cx)
-            }
+            settings::Message::SetSetting { key, value } => self.set_setting(&key, &value, cx),
             settings::Message::SetSponsorblock { key, value } => {
                 self.change_settings(|settings| settings.sponsorblock.set(&key, &value), cx)
             }
@@ -279,10 +290,7 @@ impl Browser {
             settings::Message::ChooseDownloadFolder => self.choose_download_folder(cx),
             settings::Message::ClearBrowsingData => self.clear_browsing_data(view, cx),
             settings::Message::OpenDataFolder => open_file(self.store.folder()),
-            settings::Message::CheckForUpdates => {
-                let repo = self.settings().updates.source();
-                updater(cx).update(cx, |updater, cx| updater.check(repo, cx))
-            }
+            settings::Message::CheckForUpdates => self.check_for_updates(cx),
             settings::Message::InstallUpdate => updater(cx).update(cx, Updater::install),
             settings::Message::RunImport(import) => self.import(view, import, cx),
             settings::Message::Passwords { action } => self.answer_passwords(view, action, cx),

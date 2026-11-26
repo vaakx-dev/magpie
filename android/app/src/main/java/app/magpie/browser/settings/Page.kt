@@ -8,14 +8,17 @@ import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.runtime.Composable
+import app.magpie.browser.BuildConfig
 import app.magpie.browser.browser.Browser
 import app.magpie.browser.core.MagpieCore
 import app.magpie.browser.focus.Distraction
 import app.magpie.browser.theme.Choices
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Section
+import app.magpie.browser.update.Channel
 import app.magpie.browser.update.offer
 import app.magpie.browser.update.summary
+import app.magpie.browser.update.versionLabel
 import org.mozilla.geckoview.BuildConfig as Gecko
 
 @Composable
@@ -116,13 +119,19 @@ private fun Updates(browser: Browser, onClose: () -> Unit) {
             },
         ),
     )
+    Section("Update channel")
+    Choices(Channel.entries, settings.updateChannel, Channel::label) {
+        settings.updateChannel = it
+        updates.check()
+    }
+    Note("Nightly builds come from the latest code every 3 hours and may be unstable")
 }
 
 @Composable
 private fun About(browser: Browser, onClose: () -> Unit) {
     Card(
         listOf(
-            { Item(null, "Version", onClick = {}, detail = "Magpie ${browser.updates.version}") },
+            { Item(null, "Version", onClick = {}, detail = versionLabel(browser.updates.version, BuildConfig.BUILD_SHA)) },
             { Item(null, "GeckoView", onClick = {}, detail = Gecko.MOZILLA_VERSION) },
             { Item(null, "Magpie core", onClick = {}, detail = if (MagpieCore.loaded) "Loaded" else "Not in this build") },
         ),

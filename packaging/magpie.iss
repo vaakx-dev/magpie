@@ -1,6 +1,9 @@
 #ifndef AppVersion
   #error Pass the version: ISCC /DAppVersion=<version> /DStageDir=<dist\Magpie-version> magpie.iss
 #endif
+#ifndef AssetLabel
+  #define AssetLabel AppVersion
+#endif
 #ifndef StageDir
   #error Pass the staged package folder: ISCC /DAppVersion=<version> /DStageDir=<dist\Magpie-version> magpie.iss
 #endif
@@ -23,7 +26,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=..\assets\magpie.ico
 UninstallDisplayIcon={app}\magpie.exe
 UninstallDisplayName=Magpie
-OutputBaseFilename=Magpie-{#AppVersion}-setup
+OutputBaseFilename=Magpie-{#AssetLabel}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

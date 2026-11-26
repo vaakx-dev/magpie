@@ -1,3 +1,4 @@
+mod channel;
 mod check;
 mod checksum;
 mod package;
@@ -6,6 +7,7 @@ mod repo;
 mod schedule;
 mod version;
 
+pub use channel::Channel;
 pub use check::{Download, Failure, Offer, Request, Status, check, fetch};
 pub use package::{Package, Platform};
 use release::{Asset, Release};

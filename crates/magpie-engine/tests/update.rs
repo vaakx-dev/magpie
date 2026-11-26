@@ -4,12 +4,13 @@ use std::{
 };
 
 use magpie_engine::update::{
-    CHECK_INTERVAL, Download, Failure, Offer, Package, Platform, Repo, Request, Schedule, Status,
-    Version, check,
+    CHECK_INTERVAL, Channel, Download, Failure, Offer, Package, Platform, Repo, Request, Schedule,
+    Status, Version, check,
 };
 use serde_json::json;
 
 const LATEST: &str = "https://api.github.com/repos/vaakx-dev/magpie/releases/latest";
+const NIGHTLY: &str = "https://api.github.com/repos/vaakx-dev/magpie/releases/tags/nightly";
 const PAGE: &str = "https://github.com/vaakx-dev/magpie/releases/tag/v2.0.0";
 const HASH: &str = "9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08";
 const LOWER_HASH: &str = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
@@ -22,7 +23,7 @@ fn asset_url(name: &str) -> String {
     format!("https://github.com/vaakx-dev/magpie/releases/download/v2.0.0/{name}")
 }
 
-fn release(tag: &str, assets: &[&str]) -> String {
+fn release_with(tag: &str, body: &str, assets: &[&str]) -> String {
     let assets: Vec<_> = assets
         .iter()
         .map(|name| json!({ "name": name, "browser_download_url": asset_url(name), "size": 1024 }))
@@ -31,10 +32,19 @@ fn release(tag: &str, assets: &[&str]) -> String {
         "tag_name": tag,
         "html_url": PAGE,
         "draft": false,
-        "body": "Faster tabs",
+        "body": body,
         "assets": assets,
     })
     .to_string()
+}
+
+fn release(tag: &str, assets: &[&str]) -> String {
+    release_with(tag, "Faster tabs", assets)
+}
+
+fn nightly_release(version: &str, assets: &[&str]) -> String {
+    let body = format!("Version: {version}\nCommit: 0123456789abcdef0123456789abcdef01234567\n");
+    release_with("nightly", &body, assets)
 }
 
 fn github(files: &[(&str, String)]) -> impl Fn(&str) -> Result<String, Failure> + use<> {
@@ -45,13 +55,23 @@ fn github(files: &[(&str, String)]) -> impl Fn(&str) -> Result<String, Failure> 
     move |address| files.get(address).cloned().ok_or(Failure::NotFound)
 }
 
-fn status_on(platform: Platform, fetch: impl Fn(&str) -> Result<String, Failure>) -> Status {
+fn status_of(
+    current: &str,
+    channel: Channel,
+    platform: Platform,
+    fetch: impl Fn(&str) -> Result<String, Failure>,
+) -> Status {
     let request = Request {
         repo: &Repo::default(),
-        current: &version("1.4.0"),
+        current: &version(current),
         platform,
+        channel,
     };
     check(&request, fetch)
+}
+
+fn status_on(platform: Platform, fetch: impl Fn(&str) -> Result<String, Failure>) -> Status {
+    status_of("1.4.0", Channel::Stable, platform, fetch)
 }
 
 fn offered(platform: Platform, assets: &[&str]) -> Option<Download> {
@@ -299,4 +319,146 @@ fn checks_are_due_twelve_hours_after_the_last_one() {
     schedule.record(checked).unwrap();
     assert!(!schedule.due(checked + CHECK_INTERVAL - Duration::from_secs(60)));
     assert!(schedule.due(checked + CHECK_INTERVAL));
+}
+#[test]
+fn channels_parse_from_their_labels() {
+    assert_eq!(Channel::default(), Channel::Stable);
+    assert_eq!(Channel::parse("Stable"), Some(Channel::Stable));
+    assert_eq!(Channel::parse(" nightly "), Some(Channel::Nightly));
+    assert_eq!(Channel::parse("NIGHTLY"), Some(Channel::Nightly));
+    assert_eq!(Channel::parse("beta"), None);
+    assert_eq!(Channel::parse(""), None);
+    for channel in Channel::ALL {
+        assert_eq!(Channel::parse(channel.label()), Some(channel));
+    }
+}
+
+#[test]
+fn nightly_builds_are_told_apart_from_releases() {
+    assert!(version("0.1.1-nightly.202611261600").nightly());
+    assert!(!version("0.1.1").nightly());
+    assert!(!version("0.1.1-rc.1").nightly());
+    assert!(version("0.1.1-nightly.202611261600") < version("0.1.1-nightly.202611261900"));
+    assert!(version("0.1.1-nightly.202612312100") < version("0.1.2-nightly.202701010000"));
+}
+
+#[test]
+fn the_nightly_channel_offers_each_newer_nightly_once() {
+    let latest = "0.1.1-nightly.202611261600";
+    let status = |current: &str| {
+        status_of(
+            current,
+            Channel::Nightly,
+            Platform::WindowsInstalled,
+            github(&[(NIGHTLY, nightly_release(latest, &[]))]),
+        )
+    };
+    let offered_version = |status: Status| match status {
+        Status::Available(offer) => offer.version,
+        other => panic!("expected an update, got {other:?}"),
+    };
+
+    assert_eq!(offered_version(status("0.1.1")), latest);
+    assert_eq!(offered_version(status("0.2.0")), latest);
+    assert_eq!(
+        offered_version(status("0.1.1-nightly.202611261300")),
+        latest
+    );
+    assert_eq!(status(latest), Status::UpToDate);
+    assert_eq!(status("0.1.1-nightly.202611261900"), Status::UpToDate);
+}
+
+#[test]
+fn a_nightly_without_a_stated_version_is_unreadable() {
+    let status = status_of(
+        "0.1.1",
+        Channel::Nightly,
+        Platform::WindowsInstalled,
+        github(&[(NIGHTLY, release("nightly", &[]))]),
+    );
+
+    assert_eq!(
+        status,
+        Status::Failed {
+            message: "The release on GitHub is unreadable".to_owned()
+        }
+    );
+}
+
+#[test]
+fn the_stable_channel_moves_a_nightly_build_to_the_release_it_leads_to() {
+    let status = |current: &str| {
+        status_of(
+            current,
+            Channel::Stable,
+            Platform::WindowsInstalled,
+            github(&[(LATEST, release("v0.1.1", &[]))]),
+        )
+    };
+
+    assert!(matches!(
+        status("0.1.1-nightly.202611261600"),
+        Status::Available(Offer { version, .. }) if version == "0.1.1"
+    ));
+    assert_eq!(status("0.1.2-nightly.202612011200"), Status::UpToDate);
+}
+
+#[test]
+fn nightly_assets_are_picked_and_verified_like_release_assets() {
+    let assets = [
+        "Magpie-nightly-setup.exe",
+        "Magpie-nightly-windows-x64.exe",
+        "Magpie-nightly-windows-x64.zip",
+        "Magpie-nightly-android-arm64-v8a.apk",
+        "checksums.txt",
+    ];
+    let checksums = format!(
+        "{}  Magpie-nightly-setup.exe\n{HASH}  Magpie-nightly-windows-x64.exe\n{HASH}  Magpie-nightly-android-arm64-v8a.apk\n",
+        "0".repeat(64)
+    );
+    let fetch = || {
+        github(&[
+            (
+                NIGHTLY,
+                nightly_release("0.1.1-nightly.202611261600", &assets),
+            ),
+            (&asset_url("checksums.txt"), checksums.clone()),
+        ])
+    };
+    let download =
+        |platform: Platform| match status_of("0.1.1", Channel::Nightly, platform, fetch()) {
+            Status::Available(offer) => offer.download.unwrap(),
+            other => panic!("expected an update, got {other:?}"),
+        };
+    let phone = ["arm64-v8a".to_owned()];
+
+    let portable = download(Platform::WindowsPortable);
+    let installer = download(Platform::WindowsInstalled);
+    let apk = download(Platform::Android { abis: &phone });
+
+    assert_eq!(
+        (
+            portable.name.as_str(),
+            portable.package,
+            portable.sha256.as_deref()
+        ),
+        (
+            "Magpie-nightly-windows-x64.exe",
+            Package::Portable,
+            Some(LOWER_HASH)
+        )
+    );
+    assert_eq!(
+        (installer.name.as_str(), installer.package),
+        ("Magpie-nightly-setup.exe", Package::Installer)
+    );
+    assert_eq!(installer.sha256.as_deref(), Some("0".repeat(64).as_str()));
+    assert_eq!(
+        (apk.name.as_str(), apk.package, apk.sha256.as_deref()),
+        (
+            "Magpie-nightly-android-arm64-v8a.apk",
+            Package::Apk,
+            Some(LOWER_HASH)
+        )
+    );
 }

@@ -55,7 +55,8 @@ class Updates(private val context: Context, private val scope: CoroutineScope, p
         phase = Phase.Checking
         scope.launch {
             val abis = Build.SUPPORTED_ABIS.joinToString(",")
-            phase = withContext(Dispatchers.IO) { parseStatus(MagpieCore.updateCheck(dataDir, version, abis)) }
+            val channel = settings.updateChannel.name
+            phase = withContext(Dispatchers.IO) { parseStatus(MagpieCore.updateCheck(dataDir, version, abis, channel)) }
             dismissed = false
         }
     }

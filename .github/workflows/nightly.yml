@@ -1,0 +1,175 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even when master has no new commits
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  TAG: nightly
+  BRANCH: master
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+      sha: ${{ steps.changes.outputs.sha }}
+      short_sha: ${{ steps.changes.outputs.short_sha }}
+      previous: ${{ steps.changes.outputs.previous }}
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      title: ${{ steps.version.outputs.title }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.BRANCH }}
+      - id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force || false }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          previous=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body 2>/dev/null | sed -n 's/^Commit: *\([0-9a-f]\{40\}\).*/\1/p' | head -n 1)
+          changed=true
+          if [ "$sha" = "$previous" ] && [ "$FORCE" != "true" ]; then
+            changed=false
+            echo "master is still at the last nightly commit ${sha:0:7}, so there is nothing to build"
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${sha:0:7}" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+      - id: version
+        env:
+          SHORT_SHA: ${{ steps.changes.outputs.short_sha }}
+        run: |
+          base=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          now=$(date -u +%s)
+          echo "version=$base-nightly.$(date -u -d "@$now" +%Y%m%d%H%M)" >> "$GITHUB_OUTPUT"
+          echo "version_code=$(date -u -d "@$now" +%y%m%d%H)" >> "$GITHUB_OUTPUT"
+          echo "title=Magpie Nightly ($(date -u -d "@$now" '+%Y-%m-%d %H:%M') UTC · $SHORT_SHA)" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: version
+    if: needs.version.outputs.changed == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+      - name: Build
+        env:
+          MAGPIE_BUILD_SHA: ${{ needs.version.outputs.short_sha }}
+        run: powershell -ExecutionPolicy Bypass -File packaging\build-release.ps1 -Version ${{ needs.version.outputs.version }} -Label nightly
+      - uses: actions/upload-artifact@v5
+        with:
+          name: windows
+          if-no-files-found: error
+          path: |
+            dist/Magpie-nightly-setup.exe
+            dist/Magpie-nightly-windows-x64.exe
+            dist/Magpie-nightly-windows-x64.zip
+
+  android:
+    needs: version
+    if: needs.version.outputs.changed == 'true'
+    runs-on: windows-latest
+    env:
+      APK: android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build Rust libraries
+        run: powershell -ExecutionPolicy Bypass -File android\build-rust.ps1
+      - name: Decode keystore
+        shell: bash
+        env:
+          MAGPIE_KEYSTORE_BASE64: ${{ secrets.MAGPIE_KEYSTORE_BASE64 }}
+        run: |
+          echo "$MAGPIE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/magpie-release.jks"
+          echo "MAGPIE_KEYSTORE_PATH=$RUNNER_TEMP/magpie-release.jks" >> "$GITHUB_ENV"
+      - name: Build signed APK
+        working-directory: android
+        env:
+          MAGPIE_KEYSTORE_PASSWORD: ${{ secrets.MAGPIE_KEYSTORE_PASSWORD }}
+          MAGPIE_KEY_ALIAS: ${{ secrets.MAGPIE_KEY_ALIAS }}
+          MAGPIE_KEY_PASSWORD: ${{ secrets.MAGPIE_KEY_PASSWORD }}
+        run: >-
+          .\gradlew.bat :app:assembleRelease
+          "-PmagpieVersionCode=${{ needs.version.outputs.version_code }}"
+          "-PmagpieVersionName=${{ needs.version.outputs.version }}"
+          "-PmagpieBuildSha=${{ needs.version.outputs.short_sha }}"
+      - name: Name APK
+        shell: bash
+        run: mv "$APK" Magpie-nightly-android-arm64-v8a.apk
+      - uses: actions/upload-artifact@v5
+        with:
+          name: android
+          if-no-files-found: error
+          path: Magpie-nightly-android-arm64-v8a.apk
+
+  publish:
+    needs: [version, windows, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v5
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Write checksums
+        working-directory: assets
+        run: sha256sum Magpie-* > checksums.txt
+      - name: Write notes
+        env:
+          SHA: ${{ needs.version.outputs.sha }}
+          PREVIOUS: ${{ needs.version.outputs.previous }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          since=${PREVIOUS:-$(git describe --tags --abbrev=0 --match 'v*' "$SHA" 2>/dev/null || true)}
+          {
+            echo "Version: $VERSION"
+            echo "Commit: $SHA"
+            echo
+            echo "Nightly builds come from the latest code on master and may be unstable."
+            echo
+            echo "## Changes since ${since:0:7}"
+            git log --format='- %h %s' "$since..$SHA" 2>/dev/null || git log --format='- %h %s' -n 20 "$SHA"
+          } > notes.md
+      - name: Publish nightly
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.version.outputs.sha }}
+          TITLE: ${{ needs.version.outputs.title }}
+        run: |
+          gh release delete "$TAG" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          gh release create "$TAG" assets/* --prerelease --target "$SHA" --title "$TITLE" --notes-file notes.md --repo "$GITHUB_REPOSITORY"

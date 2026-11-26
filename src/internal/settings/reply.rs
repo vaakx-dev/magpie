@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use magpie_engine::bitwarden::CipherId;
+use magpie_engine::{bitwarden::CipherId, update::Channel};
 use serde::Serialize;
 
 use crate::{
@@ -21,7 +21,7 @@ use crate::{
         profile::{ProfileId, Profiles},
         session::{Space, SpaceId},
     },
-    update::{CURRENT_VERSION, Phase},
+    update::{BUILD_COMMIT, CURRENT_VERSION, Phase},
     zoom::Zoom,
 };
 
@@ -339,6 +339,7 @@ pub struct DarkSite {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct State {
     version: &'static str,
+    commit: Option<&'static str>,
     update: Phase,
     scheme: Scheme,
     settings: BTreeMap<&'static str, String>,
@@ -410,6 +411,7 @@ fn all_choices(locale: Locale) -> BTreeMap<&'static str, Vec<Choice>> {
         ("tracking_prevention", choices::<TrackingPrevention>(locale)),
         ("reader_font", choices::<Font>(locale)),
         ("reader_text_size", choices::<TextSize>(locale)),
+        ("update_channel", choices::<Channel>(locale)),
         ("site_permission", permission_choices(locale)),
     ])
 }
@@ -543,6 +545,7 @@ impl State {
             .unwrap_or_default();
         Self {
             version: CURRENT_VERSION,
+            commit: BUILD_COMMIT,
             update,
             scheme,
             settings: settings.pairs().into_iter().collect(),

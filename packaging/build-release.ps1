@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [string] $Version,
+    [string] $Label
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -23,8 +26,8 @@ function Build-Binary {
     if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit code $LASTEXITCODE" }
 }
 
-function New-Stage([string] $Version) {
-    $stage = Join-Path $DIST "Magpie-$Version"
+function New-Stage([string] $Version, [string] $Label) {
+    $stage = Join-Path $DIST "Magpie-$Label"
     if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
     New-Item -ItemType Directory -Path $stage | Out-Null
     Copy-Item -LiteralPath (Join-Path $REPO 'target\release\magpie.exe') -Destination $stage
@@ -39,8 +42,8 @@ function New-PortableZip([string] $Stage) {
     return $zip
 }
 
-function New-PortableExe([string] $Version) {
-    $exe = Join-Path $DIST "Magpie-$Version-windows-x64.exe"
+function New-PortableExe([string] $Label) {
+    $exe = Join-Path $DIST "Magpie-$Label-windows-x64.exe"
     Copy-Item -LiteralPath (Join-Path $REPO 'target\release\magpie.exe') -Destination $exe -Force
     return $exe
 }
@@ -58,19 +61,21 @@ function Find-InnoCompiler {
     return $INNO_COMPILER_PATHS | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 }
 
-function New-Installer([string] $Compiler, [string] $Stage, [string] $Version) {
-    & $Compiler "/DAppVersion=$Version" "/DStageDir=$Stage" "/O$DIST" (Join-Path $PSScriptRoot 'magpie.iss') | Out-Host
+function New-Installer([string] $Compiler, [string] $Stage, [string] $Version, [string] $Label) {
+    & $Compiler "/DAppVersion=$Version" "/DAssetLabel=$Label" "/DStageDir=$Stage" "/O$DIST" (Join-Path $PSScriptRoot 'magpie.iss') | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
-    return Join-Path $DIST "Magpie-$Version-setup.exe"
+    return Join-Path $DIST "Magpie-$Label-setup.exe"
 }
 
-$version = Get-CrateVersion
+if (-not $Version) { $Version = Get-CrateVersion }
+if (-not $Label) { $Label = $Version }
+$env:MAGPIE_VERSION = $Version
 Build-Binary
-$stage = New-Stage -Version $version
-$assets = @((New-PortableZip -Stage $stage), (New-PortableExe -Version $version))
+$stage = New-Stage -Version $Version -Label $Label
+$assets = @((New-PortableZip -Stage $stage), (New-PortableExe -Label $Label))
 $compiler = Find-InnoCompiler
 if ($compiler) {
-    $assets += New-Installer -Compiler $compiler -Stage $stage -Version $version
+    $assets += New-Installer -Compiler $compiler -Stage $stage -Version $Version -Label $Label
 } else {
     Write-Host 'Inno Setup 6 not found, so no setup.exe was built. Install it from https://jrsoftware.org/isinfo.php to build one.'
 }

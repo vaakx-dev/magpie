@@ -44,5 +44,5 @@ object MagpieCore {
 
     external fun updateDue(dataDir: String): Boolean
 
-    external fun updateCheck(dataDir: String, version: String, abis: String): String
+    external fun updateCheck(dataDir: String, version: String, abis: String, channel: String): String
 }

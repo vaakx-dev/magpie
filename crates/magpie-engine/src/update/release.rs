@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use url::Url;
 
-use super::Version;
+use super::{Channel, Version};
 
 #[derive(Deserialize)]
 struct UncheckedAsset {
@@ -35,6 +35,8 @@ pub struct Release {
     pub assets: Vec<Asset>,
 }
 
+const VERSION_LINE: &str = "Version:";
+
 fn secure(address: &str) -> Option<Url> {
     Url::parse(address)
         .ok()
@@ -51,15 +53,34 @@ impl UncheckedAsset {
     }
 }
 
+fn stated_version(notes: &str) -> Option<Version> {
+    notes
+        .lines()
+        .find_map(|line| line.trim().strip_prefix(VERSION_LINE))
+        .and_then(Version::parse)
+}
+
+fn version(tag: &str, notes: &str, channel: Channel) -> Option<Version> {
+    match channel {
+        Channel::Stable => Version::parse(tag),
+        Channel::Nightly => stated_version(notes),
+    }
+}
+
 impl Release {
-    pub fn parse(json: &str) -> Option<Self> {
-        let unchecked: UncheckedRelease = serde_json::from_str(json).ok()?;
+    pub fn parse(json: &str, channel: Channel) -> Option<Self> {
+        let UncheckedRelease {
+            tag_name,
+            html_url,
+            body,
+            assets,
+        } = serde_json::from_str(json).ok()?;
+        let notes = body.unwrap_or_default();
         Some(Self {
-            version: Version::parse(&unchecked.tag_name)?,
-            page: secure(&unchecked.html_url)?,
-            notes: unchecked.body.unwrap_or_default(),
-            assets: unchecked
-                .assets
+            version: version(&tag_name, &notes, channel)?,
+            page: secure(&html_url)?,
+            notes,
+            assets: assets
                 .into_iter()
                 .filter_map(UncheckedAsset::checked)
                 .collect(),

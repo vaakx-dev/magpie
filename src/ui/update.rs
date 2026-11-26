@@ -10,7 +10,7 @@ use crate::{
     locale::Text,
     update::{self, Fault, Phase},
 };
-use magpie_engine::update::{Offer, Repo, Request, Schedule, Status, check, fetch};
+use magpie_engine::update::{Offer, Request, Schedule, Status, check, fetch};
 
 const SCHEDULE_FILE: &str = "update-check";
 
@@ -56,21 +56,24 @@ impl Updater {
 
     pub fn check_if_due(&mut self, updates: &Updates, cx: &mut Context<Self>) {
         if updates.automatic.on() && self.schedule.due(SystemTime::now()) {
-            self.check(updates.source(), cx);
+            self.check(updates, cx);
         }
     }
 
-    pub fn check(&mut self, repo: Repo, cx: &mut Context<Self>) {
+    pub fn check(&mut self, updates: &Updates, cx: &mut Context<Self>) {
         if self.busy() {
             return;
         }
         self.phase = Phase::Checking;
         cx.notify();
+        let repo = updates.source();
+        let channel = updates.channel;
         let checking = cx.background_spawn(async move {
             let request = Request {
                 repo: &repo,
                 current: &update::current(),
                 platform: update::platform(),
+                channel,
             };
             check(&request, fetch)
         });

@@ -35,6 +35,8 @@ fun keyFromFile(): ReleaseKey? {
 
 val releaseKey: ReleaseKey? = keyFromEnvironment() ?: keyFromFile()
 
+fun option(name: String): String? = findProperty(name) as String?
+
 android {
     namespace = "app.magpie.browser"
     compileSdk {
@@ -45,8 +47,9 @@ android {
         applicationId = "app.magpie.browser"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = option("magpieVersionCode")?.toInt() ?: 2
+        versionName = option("magpieVersionName") ?: "0.1.1"
+        buildConfigField("String", "BUILD_SHA", "\"${option("magpieBuildSha").orEmpty()}\"")
     }
 
     signingConfigs {
@@ -76,6 +79,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 

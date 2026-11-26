@@ -10,7 +10,11 @@ pub use download::{Fault, download};
 pub use install::install;
 pub use phase::Phase;
 
-pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const CURRENT_VERSION: &str = match option_env!("MAGPIE_VERSION") {
+    Some(version) => version,
+    None => env!("CARGO_PKG_VERSION"),
+};
+pub const BUILD_COMMIT: Option<&str> = option_env!("MAGPIE_BUILD_SHA");
 const FOLDER: &str = "magpie-update";
 const SETUP_UNINSTALLER: &str = "unins000.exe";
 

@@ -207,6 +207,7 @@ impl Settings {
             "reader_font" => choose(&mut reader.font, value),
             "reader_text_size" => choose(&mut reader.size, value),
             "check_for_updates" => choose(&mut updates.automatic, value),
+            "update_channel" => choose(&mut updates.channel, value),
             "update_repo" => updates.repo = Repo::parse(value),
             _ => choose_focus(focus, key, value),
         }
@@ -289,6 +290,7 @@ impl Settings {
             ("reader_font", reader.font.label().into_owned()),
             ("reader_text_size", reader.size.label().into_owned()),
             ("check_for_updates", updates.automatic.label().into_owned()),
+            ("update_channel", updates.channel.label().to_owned()),
             (
                 "update_repo",
                 updates

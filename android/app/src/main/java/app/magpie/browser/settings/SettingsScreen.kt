@@ -53,7 +53,7 @@ private fun summary(category: Category, browser: Browser): String {
         Category.Privacy -> "Ad blocker ${on(settings.privacy.adBlock)} · Tracking protection ${on(settings.privacy.trackingProtection)}"
         Category.Passwords -> settings.passwordService.label
         Category.Addons -> "Distraction Blocker · Background play ${on(settings.backgroundPlay)}"
-        Category.About -> "Version ${browser.updates.version} · Updates"
+        Category.About -> "Version ${browser.updates.version} · ${settings.updateChannel.label} updates"
     }
 }
 

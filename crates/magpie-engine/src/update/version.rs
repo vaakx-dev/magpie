@@ -12,6 +12,8 @@ pub struct Version {
     pre_release: Vec<Identifier>,
 }
 
+const NIGHTLY_LABEL: &str = "nightly";
+
 impl Identifier {
     fn parse(text: &str) -> Option<Self> {
         if text.is_empty() {
@@ -63,6 +65,10 @@ impl Version {
             core: core(numbers)?,
             pre_release: pre_release(label)?,
         })
+    }
+
+    pub fn nightly(&self) -> bool {
+        matches!(self.pre_release.first(), Some(Identifier::Text(label)) if label == NIGHTLY_LABEL)
     }
 }
 

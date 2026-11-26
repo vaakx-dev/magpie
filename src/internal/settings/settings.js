@@ -30,6 +30,7 @@ const CLEARING_BUTTONS = ["clear-start", "clear-cancel", "clear-confirm"]
 const UPDATE_TONES = { up_to_date: "success", available: "success", failed: "error", download_failed: "error" }
 const INSTALLABLE_UPDATES = ["available", "download_failed"]
 const BUSY_UPDATES = ["checking", "downloading", "installing"]
+const NIGHTLY_VERSION = /^(.+)-nightly\.(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/
 
 const VAULT_TITLES = {
   working: "Working",
@@ -485,8 +486,16 @@ function renderUpdates() {
   notes.hidden = !notes.textContent
 }
 
+function versionLabel({ version, commit }) {
+  const nightly = NIGHTLY_VERSION.exec(version)
+  if (!nightly) return `Version ${version}`
+  const [, base, year, month, day, hour, minute] = nightly
+  const build = [`${year}-${month}-${day} ${hour}:${minute} UTC`, commit].filter(Boolean).join(" · ")
+  return `Version ${base} (Nightly ${build})`
+}
+
 function renderAbout() {
-  byId("version").textContent = `Version ${state.version}`
+  byId("version").textContent = versionLabel(state)
   byId("data-folder").textContent = state.data_folder
   renderUpdates()
 }

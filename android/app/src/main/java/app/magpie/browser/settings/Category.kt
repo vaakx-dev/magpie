@@ -33,7 +33,7 @@ enum class Category(val label: String, val icon: ImageVector, private val terms:
     About(
         "About",
         Icons.Outlined.Info,
-        listOf("Version", "GeckoView", "Magpie core", "Check for updates", "Check for updates automatically", "Download & Install"),
+        listOf("Version", "GeckoView", "Magpie core", "Check for updates", "Check for updates automatically", "Update channel", "Nightly", "Download & Install"),
     );
 
     fun matches(query: String): List<String> = (listOf(label) + terms).filter { it.contains(query, ignoreCase = true) }

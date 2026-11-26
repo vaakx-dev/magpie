@@ -248,16 +248,18 @@ pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_updateCheck<'loca
     data_dir: JString<'local>,
     version: JString<'local>,
     abis: JString<'local>,
+    channel: JString<'local>,
 ) -> jstring {
-    let (Some(data_dir), Some(version), Some(abis)) = (
+    let (Some(data_dir), Some(version), Some(abis), Some(channel)) = (
         java::text(&mut env, &data_dir),
         java::text(&mut env, &version),
         java::text(&mut env, &abis),
+        java::text(&mut env, &channel),
     ) else {
         return null_mut();
     };
     java::string(
         &mut env,
-        &update::latest(Path::new(&data_dir), &version, &abis),
+        &update::latest(Path::new(&data_dir), &version, &abis, &channel),
     )
 }

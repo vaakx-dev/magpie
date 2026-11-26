@@ -2,7 +2,7 @@ use std::{fmt, time::Duration};
 
 use serde::Serialize;
 
-use super::{Asset, Package, Platform, Release, Repo, Version, checksum, package};
+use super::{Asset, Channel, Package, Platform, Release, Repo, Version, checksum, package};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Failure {
@@ -42,6 +42,7 @@ pub struct Request<'a> {
     pub repo: &'a Repo,
     pub current: &'a Version,
     pub platform: Platform<'a>,
+    pub channel: Channel,
 }
 
 const USER_AGENT: &str = "Magpie";
@@ -128,12 +129,12 @@ fn latest(
     request: &Request,
     fetch: &impl Fn(&str) -> Result<String, Failure>,
 ) -> Result<Status, Failure> {
-    let body = match fetch(&request.repo.latest_release_url()) {
+    let body = match fetch(&request.repo.release_url(request.channel)) {
         Err(Failure::NotFound) => return Ok(Status::UpToDate),
         fetched => fetched?,
     };
-    let release = Release::parse(&body).ok_or(Failure::Unreadable)?;
-    if release.version <= *request.current {
+    let release = Release::parse(&body, request.channel).ok_or(Failure::Unreadable)?;
+    if !request.channel.offers(&release.version, request.current) {
         return Ok(Status::UpToDate);
     }
     let download = download(&release, request.platform, fetch)?;
