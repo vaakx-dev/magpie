@@ -14,6 +14,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      version_code: ${{ steps.version.outputs.version_code }}
     steps:
       - uses: actions/checkout@v5
       - id: version
@@ -26,6 +27,7 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version_code=$(date -u +%y%m%d%H)" >> "$GITHUB_OUTPUT"
 
   windows:
     needs: version
@@ -75,7 +77,9 @@ jobs:
           MAGPIE_KEYSTORE_PASSWORD: ${{ secrets.MAGPIE_KEYSTORE_PASSWORD }}
           MAGPIE_KEY_ALIAS: ${{ secrets.MAGPIE_KEY_ALIAS }}
           MAGPIE_KEY_PASSWORD: ${{ secrets.MAGPIE_KEY_PASSWORD }}
-        run: .\gradlew.bat :app:assembleRelease
+        run: >-
+          .\gradlew.bat :app:assembleRelease
+          "-PmagpieVersionCode=${{ needs.version.outputs.version_code }}"
       - name: Name APK
         shell: bash
         run: mv "$APK" "Magpie-${{ needs.version.outputs.version }}-android-arm64-v8a.apk"
