@@ -1,0 +1,37 @@
+mod download;
+mod install;
+mod phase;
+
+use std::{env, path::PathBuf};
+
+use magpie_engine::update::{Platform, Version};
+
+pub use download::{Fault, download};
+pub use install::install;
+pub use phase::Phase;
+
+pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const FOLDER: &str = "magpie-update";
+const SETUP_UNINSTALLER: &str = "unins000.exe";
+
+pub fn current() -> Version {
+    Version::parse(CURRENT_VERSION).expect("the package version is semantic")
+}
+
+fn installed_by_setup() -> bool {
+    env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|folder| folder.join(SETUP_UNINSTALLER)))
+        .is_some_and(|uninstaller| uninstaller.exists())
+}
+
+pub fn platform() -> Platform<'static> {
+    match installed_by_setup() {
+        true => Platform::WindowsInstalled,
+        false => Platform::WindowsPortable,
+    }
+}
+
+pub fn folder() -> PathBuf {
+    env::temp_dir().join(FOLDER)
+}

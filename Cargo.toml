@@ -1,0 +1,66 @@
+[package]
+name = "magpie"
+version = "0.1.0"
+edition = "2024"
+description = "Magpie, a fast Arc-style web browser: a GPUI shell around Windows WebView2"
+license = "MIT"
+repository.workspace = true
+authors.workspace = true
+
+[workspace]
+members = ["crates/magpie-engine", "crates/magpie-android", "crates/magpie-blocker-wasm"]
+default-members = [".", "crates/magpie-engine"]
+
+[workspace.package]
+repository = "https://github.com/vaakx-dev/magpie"
+authors = ["vaakx-dev"]
+
+[workspace.dependencies]
+adblock = { version = "0.13", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
+
+[dependencies]
+futures = "0.3"
+gpui = "0.2.2"
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+magpie-engine = { path = "crates/magpie-engine" }
+raw-window-handle = "0.6"
+rusqlite = { version = "0.43", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+ureq = "3.5"
+url = "2.5"
+uuid = { version = "1", features = ["v4"] }
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+zeroize = { version = "1", features = ["derive"] }
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 16
+
+[profile.wasm]
+inherits = "release"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[build-dependencies]
+embed-resource = "3"

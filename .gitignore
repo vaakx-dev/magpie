@@ -1,0 +1,16 @@
+/target
+.env
+.env.*
+*.local.*
+secrets/
+/dist
+/android/.gradle
+/android/.kotlin
+/android/build
+/android/app/build
+/android/local.properties
+/android/app/src/main/jniLibs/
+/android/app/src/main/assets/extension/magpie_blocker.wasm
+*.exe
+*.pdb
+/packaging/Output

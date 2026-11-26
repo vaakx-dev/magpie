@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" data-page="history">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>History</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="page">
+  <header class="bar">
+    <h1 class="heading"><img class="mark" src="magpie.png" alt=""><span class="brand">Magpie</span> History</h1>
+    <input id="search" class="search" type="search" placeholder="Search history" autocomplete="off" autofocus>
+    <button id="clear" class="button" type="button">Clear history</button>
+    <div id="confirm" class="confirm" hidden>
+      <span>Clear all history?</span>
+      <button id="cancel-clear" class="button" type="button">Cancel</button>
+      <button id="confirm-clear" class="button danger solid" type="button">Clear</button>
+    </div>
+  </header>
+  <main id="groups"></main>
+  <p id="empty" class="empty" hidden></p>
+</div>
+<script src="shared.js"></script>
+<script src="history.js"></script>
+</body>
+</html>

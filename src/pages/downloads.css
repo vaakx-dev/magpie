@@ -1,0 +1,13 @@
+.pills { display: flex; gap: 4px; margin-bottom: 16px; }
+.pill { height: 28px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); cursor: pointer; }
+.pill:hover { background: var(--raised); color: var(--text); }
+.pill[aria-pressed="true"] { background: var(--ink-soft); color: var(--text); font-weight: 600; }
+.download { cursor: default; align-items: flex-start; padding: 10px 8px; }
+.download .actions { opacity: 1; align-self: center; }
+.download .tile { margin-top: 2px; }
+.progress { height: 4px; margin: 6px 0 4px; border-radius: 2px; background: var(--hairline); overflow: hidden; }
+.progress span { display: block; height: 100%; border-radius: 2px; background: var(--indicator); transition: width 200ms ease; }
+.progress.unknown span { width: 30%; animation: sweep 1.2s ease-in-out infinite; }
+.failed { color: var(--danger); }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.download[data-status="paused"] .progress span { background: var(--muted); animation: none; }

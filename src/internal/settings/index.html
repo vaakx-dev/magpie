@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings</title>
+  <link rel="icon" href="magpie.png">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="settings.css">
+  <script src="settings.js" defer></script>
+</head>
+<body>
+  <nav class="rail" id="rail">
+    <div class="brand"><img src="magpie.png" alt=""><span data-text="Settings">Settings</span></div>
+    <div class="find">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="find" class="field" type="search" placeholder="Find in Settings" aria-label="Find in Settings" spellcheck="false" autocomplete="off">
+    </div>
+    <a href="#general" data-section="general">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span data-text="General">General</span>
+    </a>
+    <a href="#appearance" data-section="appearance">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+      <span data-text="Appearance">Appearance</span>
+    </a>
+    <a href="#layout" data-section="layout">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      <span>Layout</span>
+    </a>
+    <a href="#search" data-section="search">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <span data-text="Search">Search</span>
+    </a>
+    <a href="#privacy" data-section="privacy">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+      <span data-text="PrivacySecurity">Privacy &amp; Security</span>
+    </a>
+    <a href="#passwords" data-section="passwords">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+      <span data-text="Passwords">Passwords</span>
+    </a>
+    <a href="#downloads" data-section="downloads">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      <span data-text="Downloads">Downloads</span>
+    </a>
+    <a href="#languages" data-section="languages">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+      <span>Languages</span>
+    </a>
+    <a href="#addons" data-section="addons">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="7" height="7" x="14" y="3" rx="1"/><path d="M10 21V8a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H3"/></svg>
+      <span data-text="AddOns">Add-ons</span>
+    </a>
+    <a href="#import" data-section="import">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"/></svg>
+      <span>Import Data</span>
+    </a>
+    <a href="#about" data-section="about">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span>About Magpie</span>
+    </a>
+  </nav>
+
+  <main id="main">
+    <section class="section" data-section="general" hidden>
+      <h1 data-text="General">General</h1>
+      <div class="group">
+        <h2 data-text="Startup">Startup</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="OnStartup">On startup</div>
+              <div class="description" data-text="OnStartupHint">Home page and New tab move Today tabs to the archive</div>
+            </div>
+            <div class="choice" data-setting="startup"></div>
+          </div>
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="HomePage">Home page</div>
+              <div class="description" data-text="HomePageHint">Opened when Magpie starts with Home page</div>
+            </div>
+            <input class="field url" type="text" inputmode="url" spellcheck="false" placeholder="https://example.com" aria-label="Home page" data-setting="home_page">
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="Tabs">Tabs</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="ArchiveIdleTabs">Archive idle tabs</div>
+              <div class="description" data-text="ArchiveIdleTabsHint">Today tabs you haven't opened in this long</div>
+            </div>
+            <div class="choice" data-setting="auto_archive"></div>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="Profiles">Profiles</h2>
+        <div class="card">
+          <div class="list" id="browsing-profiles"></div>
+          <form class="row" id="profile-add">
+            <div class="label">
+              <div class="description" data-text="ProfilesHint">Each profile keeps its own cookies, logins and site data</div>
+            </div>
+            <div class="actions">
+              <input class="field" id="profile-name" type="text" spellcheck="false" maxlength="40" placeholder="New profile name" aria-label="New profile name">
+              <button class="button" type="submit" data-text="Add">Add</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="group" id="space-profiles-group">
+        <h2 data-text="SpaceProfiles">Space profiles</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="description" data-text="SpaceProfilesHint">Tabs in a Space open in its profile</div>
+            </div>
+          </div>
+          <div class="list" id="space-profiles"></div>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="Pages">Pages</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="DefaultZoom">Default zoom</div>
+              <div class="description" data-text="DefaultZoomHint">Sites you haven't zoomed open at this size. Ctrl+0 returns to it</div>
+            </div>
+            <div class="choice" data-setting="default_zoom"></div>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Site zoom</h2>
+        <div class="card"><div class="list" id="zooms"></div></div>
+      </div>
+    </section>
+
+    <section class="section" data-section="appearance" hidden>
+      <h1 data-text="Appearance">Appearance</h1>
+      <div class="group">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="Theme">Theme</div>
+              <div class="description" data-text="ThemeHint">System follows Windows app mode</div>
+            </div>
+            <div class="choice" data-setting="theme"></div>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Favorites</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="FavoritesSize">Favorites size</div>
+              <div class="description" data-text="FavoritesSizeHint">Tiles per row follow the sidebar width</div>
+            </div>
+            <div class="choice" data-setting="favorites_size"></div>
+          </div>
+          <div class="row">
+            <div class="label"><div class="title" data-text="FavoritesColumns">Favorites columns</div></div>
+            <div class="choice" data-setting="favorites_columns"></div>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="Accessibility">Accessibility</h2>
+        <div class="card">
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="ClassicScrollbars">Classic scrollbars</span>
+              <span class="description" data-text="ClassicScrollbarsHint">Use wider system scrollbars with arrow buttons</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="classic_scrollbars">
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="layout" hidden>
+      <h1>Layout</h1>
+      <div class="group">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="TopBar">Top bar</div>
+              <div class="description" data-text="TopBarHint">Address bar above the page</div>
+            </div>
+            <div class="choice" data-setting="top_bar"></div>
+          </div>
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="Sidebar">Sidebar</div>
+              <div class="description" data-text="SidebarHint">Ctrl+B shows or hides the sidebar. Drag its edge to shrink it to icons</div>
+            </div>
+            <div class="choice" data-setting="sidebar"></div>
+          </div>
+          <div class="row">
+            <div class="label"><div class="title" data-text="SidebarSide">Sidebar side</div></div>
+            <div class="choice" data-setting="sidebar_side"></div>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="WindowControls">Window controls</div>
+              <div class="description" data-text="WindowControlsHint">Windows buttons or Mac lights</div>
+            </div>
+            <div class="choice" data-setting="window_controls_style"></div>
+          </div>
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="WindowControlsSide">Window controls side</div>
+              <div class="description" data-text="WindowControlsSideHint">Which end of the bar holds them</div>
+            </div>
+            <div class="choice" data-setting="window_controls"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="search" hidden>
+      <h1 data-text="Search">Search</h1>
+      <div class="group">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="SearchEngine">Search engine</div>
+              <div class="description" data-text="SearchEngineHint">Used when the Command Bar input isn't an address</div>
+            </div>
+            <div class="choice" data-setting="search_engine"></div>
+          </div>
+          <div class="row" data-requires="search_engine=Custom">
+            <div class="label">
+              <div class="title" data-text="SearchAddress">Search address</div>
+              <div class="description" id="custom-search-hint" data-text="SearchAddressHint">Put %s where the search terms go</div>
+            </div>
+            <input class="field url" type="text" inputmode="url" spellcheck="false" placeholder="https://example.com/search?q=%s" aria-label="Search address" data-setting="custom_search">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="privacy" hidden>
+      <h1 data-text="PrivacySecurity">Privacy &amp; Security</h1>
+      <div class="group">
+        <h2>Magpie Shield</h2>
+        <div class="card">
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="AdTrackerBlocker">Ad &amp; tracker blocker</span>
+              <span class="description" data-text="AdTrackerBlockerHint">Magpie Shield blocks ads and trackers on every site</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="shield">
+          </label>
+          <div class="list" id="paused-sites"></div>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="Tracking">Tracking</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="TrackingPrevention">Tracking prevention</div>
+              <div class="description" id="tracking-description" data-text="TrackingBalanced">Blocks trackers from sites you haven't visited. Recommended</div>
+            </div>
+            <div class="choice" data-setting="tracking_prevention"></div>
+          </div>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="DoNotTrack">Send Do Not Track and Global Privacy Control</span>
+              <span class="description" data-text="DoNotTrackHint">Asks sites not to sell or share your data</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="do_not_track">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HttpsOnly">HTTPS-Only mode</span>
+              <span class="description" data-text="HttpsOnlyHint">Opens http:// sites over https://, except local addresses</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="https_only">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="StripTracking">Strip tracking from links</span>
+              <span class="description" data-text="StripTrackingHint">Removes utm_, fbclid, gclid and similar tags from addresses you open</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="strip_tracking_params">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="TrimReferrer">Hide the page you came from</span>
+              <span class="description" data-text="TrimReferrerHint">Other sites see only the site you came from, not the exact page</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="trim_referrer">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="BlockPreloading">Block link preloading</span>
+              <span class="description" data-text="BlockPreloadingHint">Stops sites from loading pages you only point at or might open</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="block_preloading">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="BlockPings">Block link pings</span>
+              <span class="description" data-text="BlockPingsHint">Stops the background reports sites send when you click links or leave</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="block_link_pings">
+          </label>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="SitePermissions">Site permissions</h2>
+        <div class="card"><div class="list" id="site-permissions"></div></div>
+      </div>
+      <div class="group">
+        <h2 data-text="BrowsingData">Browsing data</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label" aria-live="polite">
+              <div class="title" id="clear-title" data-text="ClearBrowsingData">Clear browsing data</div>
+              <div class="description" id="clear-description" data-text="ClearBrowsingDataHint">History, cookies, site data and cache</div>
+            </div>
+            <div class="actions">
+              <button class="button danger" id="clear-start" type="button" data-text="ClearData">Clear data…</button>
+              <button class="button" id="clear-cancel" type="button" data-text="Cancel" hidden>Cancel</button>
+              <button class="button danger solid" id="clear-confirm" type="button" data-text="ClearNow" hidden>Clear now</button>
+            </div>
+          </div>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="ClearOnExit">Clear browsing data on exit</span>
+              <span class="description" data-text="ClearOnExitHint">Clears history, cookies, site data and cache when you close Magpie</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="clear_on_exit">
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="passwords" hidden>
+      <h1 data-text="Passwords">Passwords</h1>
+      <div class="group">
+        <h2>Bitwarden</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label" aria-live="polite">
+              <div class="title" id="vault-status" data-text="SignedOut">Signed out</div>
+              <div class="description" id="vault-detail" hidden></div>
+            </div>
+            <div class="actions">
+              <button class="button" id="vault-lock" type="button" data-text="Lock" hidden>Lock</button>
+              <button class="button primary" id="vault-open" type="button" data-text="SignIn">Sign in</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="downloads" hidden>
+      <h1 data-text="Downloads">Downloads</h1>
+      <div class="group">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="DownloadFolder">Download folder</div>
+              <div class="description" id="downloads-folder"></div>
+            </div>
+            <div class="actions">
+              <button class="button" id="download-reset" type="button" hidden>Reset to default</button>
+              <button class="button" id="download-change" type="button" data-text="Change">Change…</button>
+            </div>
+          </div>
+          <label class="row">
+            <span class="label"><span class="title" data-text="AskWhereToSave">Ask where to save each file</span></span>
+            <input class="switch" type="checkbox" role="switch" data-setting="ask_where_to_save">
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="languages" hidden>
+      <h1>Languages</h1>
+      <div class="group">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="Language">Language</div>
+              <div class="description" data-text="LanguageHint">Menus and settings, and the language sites see</div>
+            </div>
+            <div class="choice" data-setting="language"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="addons" hidden>
+      <h1 data-text="AddOns">Add-ons</h1>
+      <div class="group">
+        <h2>SponsorBlock</h2>
+        <div class="card">
+          <label class="row">
+            <span class="label">
+              <span class="title">SponsorBlock (YouTube)</span>
+              <span class="description" data-text="SponsorBlockHint">Skips segments the SponsorBlock community marks in YouTube videos</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-sponsorblock="enabled">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="ShowSkipNotice">Show skip notice</span>
+              <span class="description" data-text="ShowSkipNoticeHint">Says what was skipped, with a button to go back</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-sponsorblock="show_skip_notice">
+          </label>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="SkipTheseSegments">Skip these segments</h2>
+        <div class="card"><div class="list" id="categories"></div></div>
+      </div>
+      <div class="group" id="channels-group" hidden>
+        <h2 data-text="PausedChannels">Paused channels</h2>
+        <div class="card"><div class="list" id="channels"></div></div>
+      </div>
+      <div class="group">
+        <h2 data-text="DistractionBlocker">Distraction Blocker</h2>
+        <div class="card">
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideYouTubeShorts">Block YouTube Shorts</span>
+              <span class="description" data-text="HideYouTubeShortsHint">Hides Shorts shelves and buttons, and opens Shorts as normal videos</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_youtube_shorts">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideYouTubePlayables">Hide YouTube Playables</span>
+              <span class="description" data-text="HideYouTubePlayablesHint">Hides game shelves on Home and in search</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_youtube_playables">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideMembersOnly">Hide members-only videos</span>
+              <span class="description" data-text="HideMembersOnlyHint">Hides videos you can't watch without a channel membership</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_youtube_members_only">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideYouTubeRecommendations">Hide YouTube recommendations</span>
+              <span class="description" data-text="HideYouTubeRecommendationsHint">Hides the Home feed and Up next. Search and Subscriptions stay</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_youtube_recommendations">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideYouTubeComments">Hide YouTube comments</span>
+              <span class="description" data-text="HideYouTubeCommentsHint">Hides comment sections under videos</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_youtube_comments">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideInstagramReels">Block Instagram Reels and Explore</span>
+              <span class="description" data-text="HideInstagramReelsHint">Hides the Reels and Explore tabs, feeds and Reels in your feed</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_instagram_reels">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideFacebookReels">Block Facebook Reels and Watch</span>
+              <span class="description" data-text="HideFacebookReelsHint">Hides the Stories and Reels tray, Reels in your feed and the Watch feed</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_facebook_reels">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideXForYou">Hide X For you and trends</span>
+              <span class="description" data-text="HideXForYouHint">Hides the For you timeline, trends and who to follow on x.com</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_x_for_you">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="BlockTikTok">Block TikTok feeds</span>
+              <span class="description" data-text="BlockTikTokHint">Hides the For You and Explore feeds on tiktok.com</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="block_tiktok">
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="HideRedditPopular">Hide Reddit Popular and All</span>
+              <span class="description" data-text="HideRedditPopularHint">Hides the Popular, All and trending feeds and links</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="hide_reddit_popular">
+          </label>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="ForceDarkMode">Force dark mode</h2>
+        <div class="card">
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="ForceDarkMode">Force dark mode</span>
+              <span class="description" data-text="ForceDarkModeHint">Darkens bright sites. Images and videos keep their colors, and dark sites stay as they are</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="force_dark_mode">
+          </label>
+          <div class="list" id="dark-sites"></div>
+        </div>
+      </div>
+      <div class="group">
+        <h2 data-text="ReaderMode">Reader mode</h2>
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="ReaderFont">Font</div>
+              <div class="description" data-text="ReaderModeHint">Shows just the article on a clean page. Alt+R opens and closes it</div>
+            </div>
+            <div class="choice" data-setting="reader_font"></div>
+          </div>
+          <div class="row">
+            <div class="label">
+              <div class="title" data-text="ReaderTextSize">Text size</div>
+            </div>
+            <div class="choice" data-setting="reader_text_size"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="import" id="import" hidden>
+      <h1>Import Data</h1>
+      <div class="group">
+        <h2 data-text="ImportFromBrowser">Import from another browser</h2>
+        <div class="card"><div class="list" id="import-profiles"></div></div>
+      </div>
+      <div class="group" id="import-scope">
+        <div class="card">
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="Bookmarks">Bookmarks</span>
+              <span class="description" data-text="BookmarksHint">Pinned in the current space, in a folder named after the profile</span>
+            </span>
+            <input class="check" id="import-bookmarks" type="checkbox" checked>
+          </label>
+          <label class="row">
+            <span class="label">
+              <span class="title" data-text="History">History</span>
+              <span class="description" data-text="HistoryHint">Shows up when you search in the Command Bar</span>
+            </span>
+            <input class="check" id="import-history" type="checkbox" checked>
+          </label>
+          <div class="row">
+            <div class="label" aria-live="polite">
+              <div class="title" id="import-summary" hidden></div>
+              <div class="description" id="import-status" data-text="ImportAdds">Adds to what Magpie already has</div>
+            </div>
+            <button class="button primary" id="import-run" type="button" data-text="Import" disabled>Import</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" data-section="about" hidden>
+      <h1>About Magpie</h1>
+      <div class="group">
+        <div class="card">
+          <div class="row hero">
+            <img src="magpie.png" alt="">
+            <div class="label">
+              <div class="title">Magpie</div>
+              <div class="description" id="version"></div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label" aria-live="polite">
+              <div class="title">Updates</div>
+              <div class="description" id="update-status"></div>
+              <a class="description" id="update-link" target="_blank" rel="noopener" hidden>Release notes</a>
+              <div class="description notes" id="update-notes" hidden></div>
+            </div>
+            <div class="actions">
+              <button class="button" id="update-check" type="button">Check for updates</button>
+              <button class="button primary" id="update-install" type="button" hidden>Download &amp; Install</button>
+            </div>
+          </div>
+          <label class="row">
+            <span class="label">
+              <span class="title">Check for updates automatically</span>
+              <span class="description">Looks for a new release on GitHub at most every 12 hours</span>
+            </span>
+            <input class="switch" type="checkbox" role="switch" data-setting="check_for_updates">
+          </label>
+          <div class="row">
+            <div class="label">
+              <div class="title">Data folder</div>
+              <div class="description" id="data-folder"></div>
+            </div>
+            <button class="button" id="open-data-folder" type="button">Open data folder</button>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Keyboard shortcuts</h2>
+        <div class="card"><div class="list" id="shortcuts"></div></div>
+      </div>
+    </section>
+
+    <div class="no-results" id="no-results" hidden>
+      <div class="title">No settings match “<span id="no-results-query"></span>”</div>
+      <div class="description">Try a shorter or different word, like “zoom” or “theme”</div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-page="bookmarks">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookmarks</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="bookmarks.css">
+</head>
+<body>
+<div class="page layout">
+  <nav class="spaces" aria-label="Spaces">
+    <h2 class="section-title">Spaces</h2>
+    <div id="spaces"></div>
+    <a id="import" class="import" href="magpie://settings#import">Import bookmarks…</a>
+  </nav>
+  <div>
+    <header class="bar">
+      <h1 class="heading"><img class="mark" src="magpie.png" alt=""><span class="brand">Magpie</span> Bookmarks</h1>
+      <input id="search" class="search" type="search" placeholder="Search bookmarks" autocomplete="off" autofocus>
+    </header>
+    <main id="content"></main>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script src="bookmarks.js"></script>
+</body>
+</html>
