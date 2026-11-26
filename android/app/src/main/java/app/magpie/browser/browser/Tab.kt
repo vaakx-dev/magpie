@@ -8,7 +8,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import app.magpie.browser.context.image
+import app.magpie.browser.external.Handoff
+import app.magpie.browser.external.Navigation
 import app.magpie.browser.external.fallback
+import app.magpie.browser.external.handoff
 import app.magpie.browser.external.leavesBrowser
 import app.magpie.browser.favicon.retention
 import app.magpie.browser.media.Media
@@ -60,6 +63,7 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     var desktop by mutableStateOf(false); private set
     var held by mutableStateOf<ContextElement?>(null); private set
     var crashed by mutableStateOf(false); private set
+    var appLink by mutableStateOf<String?>(null); private set
     private var portraitVideo by mutableStateOf(false)
     private var port: WebExtension.Port? = null
     private var asleep = false
@@ -144,6 +148,16 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         session.loadUri(url)
     }
 
+    fun openAppLink() {
+        val uri = appLink ?: return
+        appLink = null
+        leave(uri)
+    }
+
+    fun dismissAppLink() {
+        appLink = null
+    }
+
     private fun send(message: JSONObject) {
         port?.postMessage(message)
     }
@@ -161,6 +175,14 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         if (browser.apps.open(uri)) return
         val web = fallback(uri) ?: return browser.apps.unavailable()
         session.loadUri(browser.clean(web))
+    }
+
+    private fun handOff(request: LoadRequest) {
+        val navigation = Navigation(userGesture = request.hasUserGesture, typed = request.isDirectNavigation)
+        when (handoff(navigation)) {
+            Handoff.Open -> leave(request.uri)
+            Handoff.Confirm -> appLink = appLink ?: request.uri
+        }
     }
 
     private fun replace(address: String) {
@@ -188,7 +210,7 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
 
     override fun onLoadRequest(session: GeckoSession, request: LoadRequest): GeckoResult<AllowOrDeny> {
         if (leavesBrowser(request.uri)) {
-            leave(request.uri)
+            handOff(request)
             return GeckoResult.deny()
         }
         val cleaned = browser.clean(request.uri)

@@ -20,6 +20,8 @@ function Remove-Existing([string] $Path) {
 $manifest = Read-Manifest
 @($manifest.Shortcuts) | ForEach-Object { Remove-Existing $_ }
 Remove-Existing $manifest.UninstallKey
+@($manifest.RegistryKeys) | ForEach-Object { Remove-Existing $_ }
+@($manifest.RegistryValues) | ForEach-Object { Remove-ItemProperty -LiteralPath $_.Key -Name $_.Name -ErrorAction SilentlyContinue }
 Set-Location -LiteralPath $env:TEMP
 Remove-Existing $PSScriptRoot
 Write-Host 'Magpie uninstalled. Your browsing data and settings were kept.'

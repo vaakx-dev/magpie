@@ -2,7 +2,7 @@ use std::{
     cell::{Ref, RefCell},
     collections::{BTreeMap, HashMap, HashSet},
     future::Future,
-    path::Path,
+    path::{Path, PathBuf},
     rc::Rc,
     sync::{Arc, Once},
 };
@@ -61,6 +61,7 @@ use magpie_engine::{
 const CONTAINER_CLASS: PCWSTR = w!("MagpieViewport");
 
 type SharedProfile = Shared<LocalBoxFuture<'static, Result<Rc<Profile>>>>;
+type Launch = Shared<LocalBoxFuture<'static, Result<ICoreWebView2Environment10>>>;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 enum Partition {
@@ -68,8 +69,35 @@ enum Partition {
     Profile(ProfileId),
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Generation(u64);
+
 #[derive(Clone)]
-pub struct Environment(Shared<LocalBoxFuture<'static, Result<ICoreWebView2Environment10>>>);
+struct Running {
+    generation: Generation,
+    launch: Launch,
+}
+
+struct Browser {
+    folder: PathBuf,
+    language: Language,
+    running: RefCell<Running>,
+}
+
+#[derive(Clone)]
+pub struct Environment(Rc<Browser>);
+
+pub(super) struct Created {
+    pub native: Native,
+    pub environment: ICoreWebView2Environment,
+    pub generation: Generation,
+}
+
+#[derive(Default)]
+struct Profiles {
+    generation: Generation,
+    anchors: HashMap<Partition, SharedProfile>,
+}
 
 pub struct Setup {
     pub environment: Environment,
@@ -85,7 +113,7 @@ pub struct Runtime {
     window: AnyWindowHandle,
     environment: Environment,
     role: Role,
-    profiles: RefCell<HashMap<Partition, SharedProfile>>,
+    profiles: RefCell<Profiles>,
     settings: Rc<RefCell<Settings>>,
     shield: Arc<Shield>,
     sponsorblock: Arc<sponsorblock::Client>,
@@ -141,37 +169,82 @@ impl Partition {
     }
 }
 
+fn launch(folder: &Path, language: Language) -> Launch {
+    let (sender, receiver) = oneshot::channel();
+    let completed = CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
+        move |result, environment| {
+            let environment = result.and_then(|()| environment.ok_or_else(|| E_POINTER.into()));
+            sender.send(environment).ok();
+            Ok(())
+        },
+    ));
+    let options = CoreWebView2EnvironmentOptions::default();
+    if let Some(locale) = language.chosen() {
+        unsafe { options.set_language(locale.tag().to_owned()) };
+    }
+    unsafe { options.set_scheme_registrations(vec![Some(scheme::registration())]) };
+    let options: ICoreWebView2EnvironmentOptions = options.into();
+    let started = unsafe {
+        CreateCoreWebView2EnvironmentWithOptions(
+            PCWSTR::null(),
+            &HSTRING::from(folder.as_os_str()),
+            &options,
+            &completed,
+        )
+    };
+    let created = async move {
+        started?;
+        let environment: ICoreWebView2Environment =
+            receiver.await.map_err(|_| Error::from(E_ABORT))??;
+        environment.cast::<ICoreWebView2Environment10>()
+    };
+    created.boxed_local().shared()
+}
+
+impl Generation {
+    fn next(self) -> Self {
+        Self(self.0 + 1)
+    }
+}
+
 impl Environment {
     pub fn new(folder: &Path, language: Language) -> Self {
-        let (sender, receiver) = oneshot::channel();
-        let completed = CreateCoreWebView2EnvironmentCompletedHandler::create(Box::new(
-            move |result, environment| {
-                let environment = result.and_then(|()| environment.ok_or_else(|| E_POINTER.into()));
-                sender.send(environment).ok();
-                Ok(())
-            },
-        ));
-        let options = CoreWebView2EnvironmentOptions::default();
-        if let Some(locale) = language.chosen() {
-            unsafe { options.set_language(locale.tag().to_owned()) };
+        let running = Running {
+            generation: Generation::default(),
+            launch: launch(folder, language),
+        };
+        Self(Rc::new(Browser {
+            folder: folder.to_owned(),
+            language,
+            running: RefCell::new(running),
+        }))
+    }
+
+    fn running(&self) -> Running {
+        self.0.running.borrow().clone()
+    }
+
+    fn restart(&self, dead: Generation) {
+        let mut running = self.0.running.borrow_mut();
+        if running.generation != dead {
+            return;
         }
-        unsafe { options.set_scheme_registrations(vec![Some(scheme::registration())]) };
-        let options: ICoreWebView2EnvironmentOptions = options.into();
-        let started = unsafe {
-            CreateCoreWebView2EnvironmentWithOptions(
-                PCWSTR::null(),
-                &HSTRING::from(folder.as_os_str()),
-                &options,
-                &completed,
-            )
+        *running = Running {
+            generation: dead.next(),
+            launch: launch(&self.0.folder, self.0.language),
         };
-        let created = async move {
-            started?;
-            let environment: ICoreWebView2Environment =
-                receiver.await.map_err(|_| Error::from(E_ABORT))??;
-            environment.cast::<ICoreWebView2Environment10>()
-        };
-        Self(created.boxed_local().shared())
+    }
+}
+
+impl Profiles {
+    fn of(&mut self, generation: Generation) -> &mut HashMap<Partition, SharedProfile> {
+        if self.generation != generation {
+            *self = Self {
+                generation,
+                anchors: HashMap::new(),
+            };
+        }
+        &mut self.anchors
     }
 }
 
@@ -228,12 +301,8 @@ async fn controller(
     receiver.await.map_err(|_| Error::from(E_ABORT))?
 }
 
-async fn native(
-    parent: HWND,
-    environment: Environment,
-    partition: Partition,
-) -> Result<(Native, ICoreWebView2Environment)> {
-    let environment = environment.0.await?;
+async fn native(parent: HWND, running: Running, partition: Partition) -> Result<Created> {
+    let environment = running.launch.await?;
     let container = container(parent)?;
     let controller = controller(&environment, &container, &partition).await?;
     let webview = unsafe { controller.CoreWebView2() }?;
@@ -243,7 +312,11 @@ async fn native(
         container,
         requested: Requested::default(),
     };
-    Ok((native, environment.into()))
+    Ok(Created {
+        native,
+        environment: environment.into(),
+        generation: running.generation,
+    })
 }
 
 impl Runtime {
@@ -280,7 +353,10 @@ impl Runtime {
         *self.settings.borrow_mut() = settings.clone();
         self.configure_shield();
         let profiles = self.profiles.borrow();
-        let ready = profiles.values().filter_map(|profile| profile.peek());
+        let ready = profiles
+            .anchors
+            .values()
+            .filter_map(|profile| profile.peek());
         for profile in ready.flatten() {
             report(profile.apply(settings));
         }
@@ -293,12 +369,11 @@ impl Runtime {
         }
     }
 
-    fn anchor(&self, partition: Partition) -> SharedProfile {
-        let page = native(self.parent, self.environment.clone(), partition);
+    fn anchor(&self, running: Running, partition: Partition) -> SharedProfile {
+        let page = native(self.parent, running, partition);
         let settings = Rc::clone(&self.settings);
         async move {
-            let (anchor, _) = page.await?;
-            let profile = Profile::new(anchor)?;
+            let profile = Profile::new(page.await?.native)?;
             report(profile.apply(&settings.borrow()));
             Ok(Rc::new(profile))
         }
@@ -306,25 +381,35 @@ impl Runtime {
         .shared()
     }
 
+    fn take_profile(&self, partition: &Partition) -> Option<SharedProfile> {
+        let generation = self.environment.running().generation;
+        self.profiles.borrow_mut().of(generation).remove(partition)
+    }
+
     fn profile(&self, partition: &Partition) -> SharedProfile {
+        let running = self.environment.running();
         self.profiles
             .borrow_mut()
+            .of(running.generation)
             .entry(partition.clone())
-            .or_insert_with(|| self.anchor(partition.clone()))
+            .or_insert_with(|| self.anchor(running, partition.clone()))
             .clone()
     }
 
     pub fn forget_profile(&self, profile: &ProfileId) {
-        self.profiles
-            .borrow_mut()
-            .remove(&Partition::Profile(profile.clone()));
+        self.take_profile(&Partition::Profile(profile.clone()));
     }
 
     pub fn delete_profile(&self, profile: &ProfileId) -> impl Future<Output = Result<()>> + use<> {
         let partition = Partition::Profile(profile.clone());
-        let removed = self.profiles.borrow_mut().remove(&partition);
-        let anchor = removed.unwrap_or_else(|| self.anchor(partition));
+        let anchor = self
+            .take_profile(&partition)
+            .unwrap_or_else(|| self.anchor(self.environment.running(), partition));
         async move { anchor.await?.delete() }
+    }
+
+    pub(super) fn restart(&self, dead: Generation) {
+        self.environment.restart(dead);
     }
 
     pub(super) fn privacy(&self) -> Privacy {
@@ -434,20 +519,17 @@ impl Runtime {
     }
 
     pub fn memory(&self, frames: Vec<FrameId>) -> impl Future<Output = Result<Memory>> + 'static {
-        let environment = self.environment.clone();
+        let launch = self.environment.running().launch;
         async move {
-            let environment = environment.0.await?.cast::<ICoreWebView2Environment13>()?;
+            let environment = launch.await?.cast::<ICoreWebView2Environment13>()?;
             memory::measure(&environment, frames).await
         }
     }
 
-    pub(super) async fn native(
-        &self,
-        profile: &ProfileId,
-    ) -> Result<(Native, ICoreWebView2Environment)> {
+    pub(super) async fn native(&self, profile: &ProfileId) -> Result<Created> {
         let partition = self.partition(profile);
         let anchor = self.profile(&partition);
-        let page = native(self.parent, self.environment.clone(), partition);
+        let page = native(self.parent, self.environment.running(), partition);
         let (created, profile) = futures::join!(page, anchor);
         report(profile.map(drop));
         created

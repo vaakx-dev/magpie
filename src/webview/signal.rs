@@ -10,6 +10,7 @@ use super::{
     Disposition,
     audio::Audio,
     autofill::{Sighting, Submission},
+    crash::Failure,
     download::{Prompt, Transfer},
     media::Track,
     permission::Prompt as PermissionPrompt,
@@ -50,7 +51,7 @@ pub enum Signal {
     Permission(PermissionPrompt),
     Login(Sighting),
     Submitted(Submission),
-    Crashed,
+    Crashed(Failure),
 }
 
 #[derive(Clone)]

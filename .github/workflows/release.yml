@@ -29,8 +29,11 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version_code=$(date -u +%y%m%d%H)" >> "$GITHUB_OUTPUT"
 
+  test:
+    uses: ./.github/workflows/ci.yml
+
   windows:
-    needs: version
+    needs: [version, test]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -50,7 +53,7 @@ jobs:
             dist/Magpie-${{ needs.version.outputs.version }}-windows-x64.zip
 
   android:
-    needs: version
+    needs: [version, test]
     runs-on: windows-latest
     env:
       APK: android/app/build/outputs/apk/release/app-arm64-v8a-release.apk

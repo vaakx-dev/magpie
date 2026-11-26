@@ -50,7 +50,6 @@ use gpui::{
     prelude::*, px,
 };
 use url::Url;
-use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Environment;
 use windows::{Win32::Foundation::RECT, core::Result};
 
 pub use audio::Audio;
@@ -75,6 +74,7 @@ use crate::{
 };
 use autofill::{Fill, Login, Submission};
 use background::BackgroundPlay;
+use crash::Failure;
 use darkmode::DarkMode;
 use download::Prompt;
 use filter::Filter;
@@ -87,6 +87,7 @@ use media::{Control, Track};
 use native::{Native, Placement, Rounded, report};
 use permission::Access;
 use preload::Preloading;
+use runtime::{Created, Generation};
 use scrollbar::Scrollbars;
 use signal::{CurrentPage, History, Signal, Signals};
 use sleep::Activity;
@@ -170,12 +171,14 @@ pub struct WebView {
     track: Option<Track>,
     asleep: bool,
     settling: Task<()>,
+    creating: Task<()>,
+    generation: Generation,
     scripts: PageScripts,
     crashed: bool,
     prompts: Vec<PermissionPrompt>,
     asked: BTreeSet<Kind>,
     login: Login,
-    tasks: Vec<Task<()>>,
+    pump: Task<()>,
 }
 
 fn frame(bounds: Bounds<Pixels>, scale: f32, corners: Corners) -> Rounded {
@@ -205,12 +208,12 @@ fn visible(bounds: Bounds<Pixels>, mask: Bounds<Pixels>, scale: f32) -> RECT {
     }
 }
 
-fn wire(
-    native: &Native,
-    environment: &ICoreWebView2Environment,
-    runtime: &Rc<Runtime>,
-    signals: &Signals,
-) -> Result<()> {
+fn wire(created: &Created, runtime: &Rc<Runtime>, signals: &Signals) -> Result<()> {
+    let Created {
+        native,
+        environment,
+        ..
+    } = created;
     let page = CurrentPage::default();
     navigation::wire(native, Rc::clone(runtime), Rc::clone(&page), signals)?;
     input::wire(&native.controller, Rc::clone(runtime), signals)?;
@@ -311,18 +314,7 @@ impl WebView {
             url,
             backdrop,
         } = opening;
-        let creating = Rc::clone(&runtime);
-        let creating_profile = profile.clone();
-        let creation =
-            cx.spawn(
-                async move |view, cx| match creating.native(&creating_profile).await {
-                    Ok(created) => {
-                        view.update(cx, |view, cx| view.attach(created, cx)).ok();
-                    }
-                    Err(error) => eprintln!("magpie: could not create a WebView2: {error}"),
-                },
-            );
-        Self {
+        let mut view = Self {
             runtime,
             profile,
             native: None,
@@ -339,13 +331,28 @@ impl WebView {
             track: None,
             asleep: false,
             settling: Task::ready(()),
+            creating: Task::ready(()),
+            generation: Generation::default(),
             scripts: PageScripts::default(),
             crashed: false,
             prompts: Vec::new(),
             asked: BTreeSet::new(),
             login: Login::default(),
-            tasks: vec![creation],
-        }
+            pump: Task::ready(()),
+        };
+        view.create(cx);
+        view
+    }
+
+    fn create(&mut self, cx: &mut Context<Self>) {
+        let runtime = Rc::clone(&self.runtime);
+        let profile = self.profile.clone();
+        self.creating = cx.spawn(async move |view, cx| match runtime.native(&profile).await {
+            Ok(created) => {
+                view.update(cx, |view, cx| view.attach(created, cx)).ok();
+            }
+            Err(error) => eprintln!("magpie: could not create a WebView2: {error}"),
+        });
     }
 
     pub fn url(&self) -> Option<&Url> {
@@ -392,8 +399,12 @@ impl WebView {
         self.native.iter().for_each(Native::forward);
     }
 
-    pub fn reload(&mut self, _: &mut Context<Self>) {
-        self.native.iter().for_each(Native::reload);
+    pub fn reload(&mut self, cx: &mut Context<Self>) {
+        match &self.native {
+            Some(native) => native.reload(),
+            None if self.crashed => self.create(cx),
+            None => {}
+        }
     }
 
     pub fn print(&mut self, _: &mut Context<Self>) {
@@ -642,10 +653,19 @@ impl WebView {
         self.crashed
     }
 
-    fn crash(&mut self) {
+    fn crash(&mut self, failure: Failure) {
+        match failure {
+            Failure::Page => {}
+            Failure::Browser => self.lose_browser(),
+        }
         self.crashed = true;
         self.loading = false;
         self.present();
+    }
+
+    fn lose_browser(&mut self) {
+        self.runtime.restart(self.generation);
+        self.native = None;
     }
 
     fn revive(&mut self) {
@@ -701,16 +721,15 @@ impl WebView {
         self.placement = Some(placement);
     }
 
-    fn attach(
-        &mut self,
-        (native, environment): (Native, ICoreWebView2Environment),
-        cx: &mut Context<Self>,
-    ) {
+    fn attach(&mut self, created: Created, cx: &mut Context<Self>) {
         let (signals, mut receiver) = signal::channel();
-        if let Err(error) = wire(&native, &environment, &self.runtime, &signals) {
+        if let Err(error) = wire(&created, &self.runtime, &signals) {
             eprintln!("magpie: could not wire a WebView2: {error}");
             return;
         }
+        let Created {
+            native, generation, ..
+        } = created;
         native.paint(self.backdrop);
         self.scripts.apply(&native, &self.runtime);
         if let Some(placement) = &self.placement {
@@ -719,9 +738,11 @@ impl WebView {
         if let Some(url) = &self.url {
             native.navigate(url);
         }
-        reveal(&native, &self.runtime, self.visibility);
         self.native = Some(native);
-        let pump = cx.spawn(async move |view, cx| {
+        self.generation = generation;
+        self.crashed = false;
+        self.present();
+        self.pump = cx.spawn(async move |view, cx| {
             while let Some(signal) = receiver.next().await {
                 if view
                     .update(cx, |view, cx| view.receive(signal, cx))
@@ -731,7 +752,6 @@ impl WebView {
                 }
             }
         });
-        self.tasks.push(pump);
     }
 
     fn visit(&self) -> Option<Visit> {
@@ -790,7 +810,7 @@ impl WebView {
             Signal::Permission(prompt) => self.ask(prompt),
             Signal::Login(sighting) => self.login.see(sighting),
             Signal::Submitted(submission) => cx.emit(Event::Submitted(submission)),
-            Signal::Crashed => self.crash(),
+            Signal::Crashed(failure) => self.crash(failure),
         }
         cx.notify();
     }
