@@ -3,12 +3,19 @@ use windows::core::Result;
 
 use super::signal::{Signal, Signals};
 
-fn breaks_the_tab(kind: COREWEBVIEW2_PROCESS_FAILED_KIND) -> bool {
-    matches!(
-        kind,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Failure {
+    Page,
+    Browser,
+}
+
+fn failure(kind: COREWEBVIEW2_PROCESS_FAILED_KIND) -> Option<Failure> {
+    match kind {
         COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED
-            | COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE
-    )
+        | COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE => Some(Failure::Page),
+        COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED => Some(Failure::Browser),
+        _ => None,
+    }
 }
 
 pub fn wire(webview: &ICoreWebView2, signals: Signals) -> Result<()> {
@@ -18,8 +25,8 @@ pub fn wire(webview: &ICoreWebView2, signals: Signals) -> Result<()> {
         };
         let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND::default();
         unsafe { args.ProcessFailedKind(&mut kind) }?;
-        if breaks_the_tab(kind) {
-            signals.send(Signal::Crashed);
+        if let Some(failure) = failure(kind) {
+            signals.send(Signal::Crashed(failure));
         }
         Ok(())
     }));

@@ -8,14 +8,28 @@ use std::{
 
 use magpie_engine::update::{Download, Failure};
 use sha2::{Digest, Sha256};
+use ureq::{
+    Body,
+    http::{Response, header::LOCATION},
+};
+use url::Url;
 
 #[derive(Debug)]
 pub enum Fault {
     Network(Failure),
+    Untrusted,
+    Unverified,
     Mismatch,
     Disk(io::Error),
 }
 
+const OFFICIAL_HOSTS: [&str; 3] = [
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+];
+const OFFICIAL_SCHEME: &str = "https";
+const MAX_REDIRECTS: usize = 5;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
 const CHUNK_BYTES: usize = 64 * 1024;
@@ -26,6 +40,14 @@ impl fmt::Display for Fault {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Network(failure) => write!(formatter, "{failure}"),
+            Self::Untrusted => write!(
+                formatter,
+                "The update isn't hosted on Magpie's GitHub releases, so it wasn't downloaded"
+            ),
+            Self::Unverified => write!(
+                formatter,
+                "The release has no checksum for this download, so it wasn't installed"
+            ),
             Self::Mismatch => write!(
                 formatter,
                 "The download didn't match its checksum, so it wasn't installed"
@@ -45,8 +67,57 @@ fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
         .timeout_connect(Some(CONNECT_TIMEOUT))
         .timeout_per_read(Some(READ_TIMEOUT))
+        .max_redirects(0)
         .build()
         .into()
+}
+
+fn official_host(url: &Url) -> bool {
+    url.host_str()
+        .is_some_and(|host| OFFICIAL_HOSTS.contains(&host))
+}
+
+fn official(address: &str) -> Result<Url, Fault> {
+    let url = Url::parse(address).map_err(|_| Fault::Untrusted)?;
+    let trusted = url.scheme() == OFFICIAL_SCHEME
+        && official_host(&url)
+        && url.port().is_none()
+        && url.username().is_empty()
+        && url.password().is_none();
+    trusted.then_some(url).ok_or(Fault::Untrusted)
+}
+
+fn redirect(response: &Response<Body>, from: &Url) -> Result<Option<Url>, Fault> {
+    if !response.status().is_redirection() {
+        return Ok(None);
+    }
+    let location = response
+        .headers()
+        .get(LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .ok_or(Fault::Network(Failure::Unreadable))?;
+    let next = from.join(location).map_err(|_| Fault::Untrusted)?;
+    official(next.as_str()).map(Some)
+}
+
+fn request(address: &str) -> Result<Response<Body>, Fault> {
+    let agent = agent();
+    let mut url = official(address)?;
+    for _ in 0..=MAX_REDIRECTS {
+        let response = agent
+            .get(url.as_str())
+            .call()
+            .map_err(|error| Fault::Network(error.into()))?;
+        match redirect(&response, &url)? {
+            Some(next) => url = next,
+            None => return Ok(response),
+        }
+    }
+    Err(Fault::Network(Failure::Unreadable))
+}
+
+fn expected_sha256(download: &Download) -> Result<&str, Fault> {
+    download.sha256.as_deref().ok_or(Fault::Unverified)
 }
 
 fn file_name(download: &Download) -> Result<&str, Fault> {
@@ -65,10 +136,7 @@ fn percent(received: u64, size: u64) -> u8 {
 }
 
 fn save(download: &Download, path: &Path, progress: &mut impl FnMut(u8)) -> Result<String, Fault> {
-    let response = agent()
-        .get(&download.url)
-        .call()
-        .map_err(|error| Fault::Network(error.into()))?;
+    let response = request(&download.url)?;
     let mut body = response
         .into_body()
         .into_with_config()
@@ -99,25 +167,19 @@ fn save(download: &Download, path: &Path, progress: &mut impl FnMut(u8)) -> Resu
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-fn verify(download: &Download, digest: &str) -> Result<(), Fault> {
-    match &download.sha256 {
-        Some(expected) if expected != digest => Err(Fault::Mismatch),
-        _ => Ok(()),
-    }
-}
-
 pub fn download(
     download: &Download,
     folder: &Path,
     mut progress: impl FnMut(u8),
 ) -> Result<PathBuf, Fault> {
     let target = folder.join(file_name(download)?);
+    let expected = expected_sha256(download)?;
     let partial = folder.join(format!("{}{PARTIAL_SUFFIX}", download.name));
     fs::create_dir_all(folder)?;
     let digest = save(download, &partial, &mut progress)?;
-    if let Err(fault) = verify(download, &digest) {
+    if digest != expected {
         fs::remove_file(&partial)?;
-        return Err(fault);
+        return Err(Fault::Mismatch);
     }
     fs::rename(&partial, &target)?;
     Ok(target)

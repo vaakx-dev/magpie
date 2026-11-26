@@ -4,12 +4,13 @@ use std::{
     process::Command,
 };
 
-use magpie::update::{self, Handoff};
-use magpie_engine::update::Package;
+use magpie::update::{self, Fault, Handoff};
+use magpie_engine::update::{Download, Package};
 use tempfile::TempDir;
 
 const NEW_BUILD: &str = r"C:\Windows\System32\hostname.exe";
 const OLD_BUILD: &str = r"C:\Windows\System32\whoami.exe";
+const CHECKSUM: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 struct Layout {
     _root: TempDir,
@@ -82,4 +83,39 @@ fn failed_portable_update_keeps_the_old_exe_and_reports_why_on_the_next_launch()
     );
     update::clear(&layout.downloads).unwrap();
     assert!(!layout.downloads.exists());
+}
+
+fn offered(url: &str, sha256: Option<&str>) -> Download {
+    Download {
+        name: "Magpie-9.9.9-setup.exe".to_owned(),
+        url: url.to_owned(),
+        size: 1,
+        sha256: sha256.map(str::to_owned),
+        package: Package::Installer,
+    }
+}
+
+#[test]
+fn updates_only_download_from_github_release_hosts() {
+    let folder = TempDir::new().unwrap();
+    let untrusted = [
+        "https://github.com.example.net/vaakx-dev/magpie/releases/download/v9.9.9/setup.exe",
+        "http://github.com/vaakx-dev/magpie/releases/download/v9.9.9/setup.exe",
+        "https://github.com:8443/vaakx-dev/magpie/releases/download/v9.9.9/setup.exe",
+        "https://user@objects.githubusercontent.com/setup.exe",
+        "https://example.com/setup.exe",
+    ];
+    for url in untrusted {
+        let fault = update::download(&offered(url, Some(CHECKSUM)), folder.path(), drop);
+        assert!(matches!(fault, Err(Fault::Untrusted)), "{url} was trusted");
+    }
+}
+
+#[test]
+fn updates_without_a_checksum_are_refused() {
+    let folder = TempDir::new().unwrap();
+    let official = "https://github.com/vaakx-dev/magpie/releases/download/v9.9.9/setup.exe";
+    let fault = update::download(&offered(official, None), folder.path(), drop);
+    assert!(matches!(fault, Err(Fault::Unverified)));
+    assert_eq!(fs::read_dir(folder.path()).unwrap().count(), 0);
 }
