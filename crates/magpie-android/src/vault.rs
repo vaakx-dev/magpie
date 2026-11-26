@@ -62,11 +62,9 @@ struct Pending {
 enum Problem {
     Failed(Error),
     WrongCode,
-    StaleKey,
 }
 
 const WRONG_CODE: &str = "That code didn't work. Check it and try again.";
-const STALE_KEY: &str = "Biometric unlock no longer matches this vault and was turned off. Unlock with your master password, then turn it back on.";
 const SIGNED_OUT: Account<'static> = Account {
     state: "signedOut",
     email: None,
@@ -166,7 +164,6 @@ impl fmt::Display for Problem {
         match self {
             Self::Failed(error) => error.fmt(formatter),
             Self::WrongCode => formatter.write_str(WRONG_CODE),
-            Self::StaleKey => formatter.write_str(STALE_KEY),
         }
     }
 }
@@ -227,12 +224,8 @@ impl Keyring {
         Ok(())
     }
 
-    fn unlock_with_key(&mut self, key: &[u8]) -> Result<(), Problem> {
-        let key = SymmetricKey::from_bytes(key)?;
-        match self.vault.unlock_with_key(key) {
-            Err(Error::Tampered) => return Err(Problem::StaleKey),
-            result => result?,
-        }
+    fn unlock_with_key(&mut self, key: &[u8]) -> Result<(), Error> {
+        self.vault.unlock_with_key(SymmetricKey::from_bytes(key)?)?;
         sync_quietly();
         Ok(())
     }

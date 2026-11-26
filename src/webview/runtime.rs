@@ -124,7 +124,7 @@ fn register_container_class() {
     });
 }
 
-pub fn window_handle(window: &Window) -> Result<HWND> {
+fn window_handle(window: &Window) -> Result<HWND> {
     let handle = HasWindowHandle::window_handle(window).map_err(|_| Error::from(E_POINTER))?;
     match handle.as_raw() {
         RawWindowHandle::Win32(handle) => Ok(HWND(handle.hwnd.get() as _)),

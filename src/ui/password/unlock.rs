@@ -3,9 +3,8 @@ use url::Url;
 
 use super::{fill, keyring::Phase, offer::Offer};
 use crate::{
-    locale::Text,
     ui::{browser::Browser, window},
-    webview::{WebView, window_handle},
+    webview::WebView,
 };
 
 pub enum AfterUnlock {
@@ -33,18 +32,7 @@ impl Browser {
         cx: &mut Context<Self>,
     ) {
         self.after_unlock = Some(then);
-        let keyring = window::keyring(cx);
-        if !keyring.read(cx).hello_ready() {
-            self.show_passwords(window, cx);
-            return;
-        }
-        let Ok(handle) = window_handle(window) else {
-            return;
-        };
-        let reason = self.text(Text::HelloReason).into();
-        keyring.update(cx, |keyring, cx| {
-            keyring.unlock_with_hello(handle, reason, cx)
-        });
+        self.show_passwords(window, cx);
     }
 
     fn fill_only_match(&self, view: &WeakEntity<WebView>, page: &Url, cx: &mut Context<Self>) {

@@ -93,7 +93,6 @@ icons! {
     Code => "code",
     Maximize => "maximize",
     KeyRound => "key-round",
-    ScanFace => "scan-face",
     Pencil => "pencil",
     Moon => "moon",
     User => "user",

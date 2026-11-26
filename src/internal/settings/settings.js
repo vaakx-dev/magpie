@@ -535,12 +535,6 @@ function renderMethods({ methods, email_sent }) {
   say(emailCode, email_sent ? "EmailCodeSent" : "SendEmailCode")
 }
 
-function renderHello({ available, on }, status) {
-  byId("vault-hello-unlock").hidden = !(status === "locked" && available && on)
-  byId("vault-hello").hidden = !(status === "unlocked" && available)
-  byId("vault-hello-switch").checked = on
-}
-
 function placeholders() {
   byId("vault-email").placeholder = state.text.Email
   byId("vault-password").placeholder = state.text.MasterPassword
@@ -566,10 +560,8 @@ function renderPasswords(passwords) {
   byId("vault-sync").hidden = status !== "unlocked"
   byId("vault-lock").hidden = status !== "unlocked"
   byId("vault-sign-out").hidden = !SIGNED_IN.includes(status)
-  byId("vault-hello").hidden = true
   placeholders()
   if (status === "challenged") renderMethods(passwords.challenge)
-  if (SIGNED_IN.includes(status)) renderHello(passwords.hello, status)
   if (status !== "unlocked") return
   say(byId("vault-count"), "SavedLogins", String(passwords.logins))
   searchVault()
@@ -625,11 +617,6 @@ function unlockVault(event) {
 function chooseHost() {
   const host = document.querySelector("input[name=vault-host]:checked").value
   byId("vault-address").hidden = host !== "custom"
-}
-
-function setHello(event) {
-  vault({ kind: "set_hello", on: event.target.checked })
-  event.target.checked = !event.target.checked
 }
 
 function keyCombo(keys) {
@@ -832,8 +819,6 @@ function listen() {
   byId("vault-email-code").addEventListener("click", () => vault({ kind: "send_email_code" }))
   byId("vault-cancel").addEventListener("click", () => vault({ kind: "cancel_sign_in" }))
   byId("vault-unlock").addEventListener("submit", unlockVault)
-  byId("vault-hello-unlock").addEventListener("click", () => vault({ kind: "unlock_with_hello" }))
-  byId("vault-hello-switch").addEventListener("change", setHello)
   byId("vault-sync").addEventListener("click", () => vault({ kind: "sync" }))
   byId("vault-lock").addEventListener("click", () => vault({ kind: "lock" }))
   byId("vault-sign-out").addEventListener("click", () => vault({ kind: "sign_out" }))

@@ -183,7 +183,6 @@ impl Look {
         let message = match problem? {
             Problem::Failed(message) => SharedString::from(message.clone()),
             Problem::WrongCode => self.text(Text::WrongCode).into(),
-            Problem::HelloExpired => self.text(Text::HelloExpired).into(),
         };
         Some(
             div()

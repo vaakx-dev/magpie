@@ -123,7 +123,6 @@ private fun Unlock(
     status: Status,
     busy: Boolean,
     onUnlock: (String) -> Unit,
-    onBiometricUnlock: (() -> Unit)?,
     onSignOut: () -> Unit,
 ) {
     val password = rememberTextFieldState()
@@ -131,10 +130,7 @@ private fun Unlock(
     SecretField(password, "Master password")
     Problem(status.error)
     Action("Unlock", enabled = !busy && password.text.isNotEmpty()) { onUnlock(password.text.toString()) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        TextButton(enabled = !busy, onClick = onSignOut) { Text("Sign out") }
-        onBiometricUnlock?.let { TextButton(enabled = !busy, onClick = it) { Text("Unlock with biometrics") } }
-    }
+    TextButton(enabled = !busy, onClick = onSignOut, modifier = Modifier.padding(horizontal = 12.dp)) { Text("Sign out") }
 }
 
 @Composable
@@ -191,7 +187,6 @@ private fun Logins(browser: Browser, status: Status, onLock: () -> Unit, onSignO
 @Composable
 fun PasswordSheet(browser: Browser, onDismiss: () -> Unit) {
     val vault = browser.vault
-    val activity = hostActivity()
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<Status?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -224,8 +219,6 @@ fun PasswordSheet(browser: Browser, onDismiss: () -> Unit) {
                 current,
                 busy,
                 onUnlock = { password -> run { vault.unlock(password) } },
-                onBiometricUnlock = { run { vault.unlockWithBiometrics(activity, current) } }
-                    .takeIf { vault.biometrics.on && vault.biometrics.available },
                 onSignOut = { run { vault.signOut() } },
             )
             Lock.Unlocked -> Logins(browser, current, onLock = { run { vault.lock() } }, onSignOut = { run { vault.signOut() } })

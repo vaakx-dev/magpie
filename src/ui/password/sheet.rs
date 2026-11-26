@@ -15,7 +15,7 @@ use super::{
 use crate::{
     locale::Text,
     ui::{field::Field, icon::Icon},
-    webview::{WebView, autofill::fillable, window_handle},
+    webview::{WebView, autofill::fillable},
 };
 use magpie_engine::{
     bitwarden::{CipherId, Login, Vault, password},
@@ -104,16 +104,6 @@ impl Sheet {
         let password = self.password.update(cx, Field::take);
         self.keyring
             .update(cx, |keyring, cx| keyring.unlock(password, cx));
-    }
-
-    fn unlock_with_hello(&mut self, window: &Window, cx: &mut Context<Self>) {
-        let Ok(handle) = window_handle(window) else {
-            return;
-        };
-        let reason = self.look.text(Text::HelloReason).into();
-        self.keyring.update(cx, |keyring, cx| {
-            keyring.unlock_with_hello(handle, reason, cx)
-        });
     }
 
     fn submit(&mut self, _: &Submit, _: &mut Window, cx: &mut Context<Self>) {
@@ -214,32 +204,17 @@ impl Sheet {
             .child(self.password.clone())
     }
 
-    fn hello_button(&self, cx: &Context<Self>) -> Option<Stateful<Div>> {
-        let look = self.look;
-        self.keyring.read(cx).hello_ready().then(|| {
-            look.button("hello", look.text(Text::UnlockWithHello), Emphasis::Primary)
-                .child(Icon::ScanFace.tinted(rgba(look.colors.on_text)))
-                .flex_row_reverse()
-                .on_click(cx.listener(|sheet, _, window, cx| sheet.unlock_with_hello(window, cx)))
-        })
-    }
-
     fn locked(&self, cx: &Context<Self>) -> Div {
         let look = self.look;
-        let emphasis = match self.keyring.read(cx).hello_ready() {
-            true => Emphasis::Secondary,
-            false => Emphasis::Primary,
-        };
         div()
             .px_3()
             .py_1()
             .flex()
             .flex_col()
             .gap_2()
-            .children(self.hello_button(cx))
             .child(
                 div().flex().gap_2().child(self.input(cx)).child(
-                    look.button("unlock", look.text(Text::Unlock), emphasis)
+                    look.button("unlock", look.text(Text::Unlock), Emphasis::Primary)
                         .on_click(cx.listener(|sheet, _, _, cx| sheet.unlock(cx))),
                 ),
             )

@@ -1,13 +1,12 @@
 use std::{mem, path::Path, sync::Arc};
 
 use gpui::{AppContext, Context};
-use windows::{Win32::Foundation::HWND, core::HSTRING};
 use zeroize::Zeroizing;
 
-use super::hello::{self, KeyFile};
+use crate::vault_key::VaultKey;
 use magpie_engine::bitwarden::{
     Challenge, CipherId, Credentials, Error, Fetched, Method, NewLogin, Proof, Server, SignIn,
-    Status, SymmetricKey, Vault,
+    Status, Vault,
 };
 
 pub struct Account {
@@ -31,7 +30,6 @@ pub struct Pending {
 pub enum Problem {
     Failed(String),
     WrongCode,
-    HelloExpired,
 }
 
 pub enum Phase<'a> {
@@ -49,17 +47,18 @@ enum Slot {
     Unavailable(String),
 }
 
-struct Hello {
-    file: KeyFile,
-    available: bool,
-    on: bool,
-}
-
 pub struct Keyring {
     slot: Slot,
     pending: Option<Pending>,
     problem: Option<Problem>,
-    hello: Hello,
+    key: VaultKey,
+}
+
+fn remembered(key: &VaultKey, vault: &Vault, outcome: SignIn) -> Result<SignIn, Error> {
+    if matches!(outcome, SignIn::Unlocked) {
+        key.save(vault)?;
+    }
+    Ok(outcome)
 }
 
 impl Pending {
@@ -85,44 +84,16 @@ impl Keyring {
             Ok(vault) => Slot::Ready(Box::new(vault)),
             Err(error) => Slot::Unavailable(error.to_string()),
         };
-        let file = KeyFile::in_folder(folder);
-        let hello = Hello {
-            on: file.exists(),
-            file,
-            available: false,
-        };
-        Self::check_hello(cx);
-        Self {
+        let mut keyring = Self {
             slot,
             pending: None,
             problem: None,
-            hello,
+            key: VaultKey::in_folder(folder),
+        };
+        if keyring.key.saved() {
+            keyring.unlock_with_saved_key(cx);
         }
-    }
-
-    fn check_hello(cx: &mut Context<Self>) {
-        cx.spawn(async move |keyring, cx| {
-            let available = hello::available().await;
-            keyring
-                .update(cx, |keyring, cx| {
-                    keyring.hello.available = available;
-                    cx.notify();
-                })
-                .ok();
-        })
-        .detach();
-    }
-
-    pub fn hello_available(&self) -> bool {
-        self.hello.available
-    }
-
-    pub fn hello_on(&self) -> bool {
-        self.hello.on
-    }
-
-    pub fn hello_ready(&self) -> bool {
-        self.hello.available && self.hello.on
+        keyring
     }
 
     pub fn phase(&self) -> Phase<'_> {
@@ -195,12 +166,14 @@ impl Keyring {
     }
 
     pub fn sign_in(&mut self, account: Account, cx: &mut Context<Self>) {
+        let key = self.key.clone();
         let job = move |vault: &mut Vault| {
-            vault.sign_in(&Credentials {
+            let outcome = vault.sign_in(&Credentials {
                 server: account.server,
                 email: &account.email,
                 password: &account.password,
-            })
+            })?;
+            remembered(&key, vault, outcome)
         };
         self.run(job, |keyring, outcome, _| keyring.signed_in(outcome), cx);
     }
@@ -210,7 +183,11 @@ impl Keyring {
             return;
         };
         let challenge = Arc::clone(&pending.challenge);
-        let job = move |vault: &mut Vault| vault.answer(&challenge, &proof);
+        let key = self.key.clone();
+        let job = move |vault: &mut Vault| {
+            let outcome = vault.answer(&challenge, &proof)?;
+            remembered(&key, vault, outcome)
+        };
         self.run(job, |keyring, outcome, _| keyring.answered(outcome), cx);
     }
 
@@ -235,104 +212,23 @@ impl Keyring {
     }
 
     pub fn unlock(&mut self, password: Zeroizing<String>, cx: &mut Context<Self>) {
-        let job = move |vault: &mut Vault| vault.unlock(&password);
-        let unlocked = |keyring: &mut Self, (), cx: &mut Context<Self>| {
-            keyring.refresh_hello(cx);
-            keyring.sync_quietly(cx);
-        };
-        self.run(job, unlocked, cx);
-    }
-
-    pub fn unlock_with_hello(&mut self, window: HWND, reason: HSTRING, cx: &mut Context<Self>) {
-        if !self.hello_ready() {
-            return;
-        }
-        let verified = hello::verify(window, reason);
-        cx.spawn(async move |keyring, cx| {
-            if verified.await {
-                keyring
-                    .update(cx, |keyring, cx| keyring.open_with_stored_key(cx))
-                    .ok();
-            }
-        })
-        .detach();
-    }
-
-    fn open_with_stored_key(&mut self, cx: &mut Context<Self>) {
-        let file = self.hello.file.clone();
+        let key = self.key.clone();
         let job = move |vault: &mut Vault| {
-            let key = SymmetricKey::from_bytes(&file.load()?)?;
-            match vault.unlock_with_key(key) {
-                Ok(()) => Ok(true),
-                Err(Error::Tampered) => Ok(false),
-                Err(error) => Err(error),
-            }
+            vault.unlock(&password)?;
+            key.save(vault)
         };
-        let opened = |keyring: &mut Self, opened: bool, cx: &mut Context<Self>| match opened {
-            true => keyring.sync_quietly(cx),
-            false => keyring.problem = Some(Problem::HelloExpired),
+        self.run(job, |keyring, (), cx| keyring.sync_quietly(cx), cx);
+    }
+
+    fn unlock_with_saved_key(&mut self, cx: &mut Context<Self>) {
+        let key = self.key.clone();
+        let job = move |vault: &mut Vault| Ok(key.unlock(vault).is_ok());
+        let opened = |keyring: &mut Self, opened: bool, cx: &mut Context<Self>| {
+            if opened {
+                keyring.sync_quietly(cx);
+            }
         };
         self.run(job, opened, cx);
-    }
-
-    fn key(&self) -> Option<Zeroizing<Vec<u8>>> {
-        let Slot::Ready(vault) = &self.slot else {
-            return None;
-        };
-        vault.key().ok().map(SymmetricKey::bytes)
-    }
-
-    fn store_key(&mut self, key: Zeroizing<Vec<u8>>, cx: &mut Context<Self>) {
-        let file = self.hello.file.clone();
-        let stored = cx.background_spawn(async move { file.store(&key) });
-        cx.spawn(async move |keyring, cx| {
-            let result = stored.await;
-            keyring
-                .update(cx, |keyring, cx| {
-                    match result {
-                        Ok(()) => keyring.hello.on = true,
-                        Err(error) => keyring.problem = Some(Problem::Failed(error.to_string())),
-                    }
-                    cx.notify();
-                })
-                .ok();
-        })
-        .detach();
-    }
-
-    fn refresh_hello(&mut self, cx: &mut Context<Self>) {
-        if !self.hello.on {
-            return;
-        }
-        if let Some(key) = self.key() {
-            self.store_key(key, cx);
-        }
-    }
-
-    pub fn turn_on_hello(&mut self, window: HWND, reason: HSTRING, cx: &mut Context<Self>) {
-        let Some(key) = self.key().filter(|_| self.hello.available) else {
-            return;
-        };
-        let verified = hello::verify(window, reason);
-        cx.spawn(async move |keyring, cx| {
-            if verified.await {
-                keyring
-                    .update(cx, |keyring, cx| keyring.store_key(key, cx))
-                    .ok();
-            }
-        })
-        .detach();
-    }
-
-    pub fn turn_off_hello(&mut self, cx: &mut Context<Self>) {
-        self.problem = self
-            .hello
-            .file
-            .forget()
-            .err()
-            .map(|error| Problem::Failed(error.to_string()));
-        self.hello.on = false;
-        cx.notify();
     }
 
     pub fn sync(&mut self, cx: &mut Context<Self>) {
@@ -390,10 +286,14 @@ impl Keyring {
     }
 
     pub fn lock(&mut self, cx: &mut Context<Self>) {
-        if let Slot::Ready(vault) = &mut self.slot {
-            vault.lock();
-        }
-        self.problem = None;
+        let Slot::Ready(vault) = &mut self.slot else {
+            return;
+        };
+        self.problem = self
+            .key
+            .lock(vault)
+            .err()
+            .map(|error| Problem::Failed(error.to_string()));
         cx.notify();
     }
 
@@ -401,10 +301,11 @@ impl Keyring {
         let Slot::Ready(vault) = &mut self.slot else {
             return;
         };
-        let signed_out = vault.sign_out().map_err(|error| error.to_string());
-        let forgotten = self.hello.file.forget().map_err(|error| error.to_string());
-        self.problem = signed_out.and(forgotten).err().map(Problem::Failed);
-        self.hello.on = false;
+        self.problem = self
+            .key
+            .sign_out(vault)
+            .err()
+            .map(|error| Problem::Failed(error.to_string()));
         self.pending = None;
         cx.notify();
     }

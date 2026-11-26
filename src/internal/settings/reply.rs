@@ -24,7 +24,7 @@ use crate::{
     zoom::Zoom,
 };
 
-const PAGE_TEXT: [Text; 189] = [
+const PAGE_TEXT: [Text; 186] = [
     Text::Settings,
     Text::Appearance,
     Text::General,
@@ -153,11 +153,8 @@ const PAGE_TEXT: [Text; 189] = [
     Text::SendEmailCode,
     Text::EmailCodeSent,
     Text::Continue,
-    Text::UnlockWithHello,
     Text::SignOut,
     Text::Sync,
-    Text::WindowsHello,
-    Text::WindowsHelloHint,
     Text::SearchVault,
     Text::NoMatchingLogins,
     Text::Username,
@@ -247,12 +244,6 @@ pub struct SpaceRow {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub struct Hello {
-    pub available: bool,
-    pub on: bool,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct Method {
     pub value: &'static str,
     pub name: &'static str,
@@ -280,13 +271,11 @@ pub enum Passwords {
     },
     Locked {
         email: Option<String>,
-        hello: Hello,
         problem: Option<String>,
     },
     Unlocked {
         email: Option<String>,
         logins: usize,
-        hello: Hello,
         problem: Option<String>,
     },
 }

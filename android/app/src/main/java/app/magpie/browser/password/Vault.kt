@@ -1,7 +1,6 @@
 package app.magpie.browser.password
 
 import android.content.Context
-import androidx.fragment.app.FragmentActivity
 import app.magpie.browser.core.MagpieCore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,55 +69,60 @@ fun parseLogins(json: String): List<Login> {
 
 fun parseCode(json: String): String = JSONObject(json).optString("code")
 
-private const val LOCKED_FIRST = "Unlock the vault with your master password first."
-private const val BIOMETRICS_EXPIRED = "Biometric unlock stopped working and was turned off. Unlock with your master password, then turn it back on."
-
 class Vault(context: Context) {
-    val biometrics = Biometrics(context)
+    private val savedKey = SavedKey(context)
 
-    suspend fun status(): Status =
-        if (MagpieCore.loaded) core { parseStatus(MagpieCore.bitwardenStatus()) } else Status(Lock.Unavailable)
+    suspend fun status(): Status {
+        if (!MagpieCore.loaded) return Status(Lock.Unavailable)
+        val status = core { parseStatus(MagpieCore.bitwardenStatus()) }
+        return if (status.lock == Lock.Locked) unlockWithSavedKey(status) else status
+    }
 
     suspend fun signIn(server: String, email: String, password: String): Status =
-        core { parseStatus(MagpieCore.bitwardenSignIn(server, email, password)) }
+        keepingKey(core { parseStatus(MagpieCore.bitwardenSignIn(server, email, password)) })
 
-    suspend fun answer(method: Method, code: String): Status = core { parseStatus(MagpieCore.bitwardenAnswer(method.key, code)) }
+    suspend fun answer(method: Method, code: String): Status =
+        keepingKey(core { parseStatus(MagpieCore.bitwardenAnswer(method.key, code)) })
 
     suspend fun sendEmailCode(): Status = core { parseStatus(MagpieCore.bitwardenSendEmailCode()) }
 
-    suspend fun unlock(password: String): Status = core { parseStatus(MagpieCore.bitwardenUnlock(password)) }
+    suspend fun unlock(password: String): Status = keepingKey(core { parseStatus(MagpieCore.bitwardenUnlock(password)) })
 
-    suspend fun lock(): Status = core { parseStatus(MagpieCore.bitwardenLock()) }
-
-    suspend fun signOut(): Status {
-        biometrics.forget()
-        return core { parseStatus(MagpieCore.bitwardenSignOut()) }
+    suspend fun lock(): Status = core {
+        savedKey.forget()
+        parseStatus(MagpieCore.bitwardenLock())
     }
 
-    suspend fun turnOnBiometrics(activity: FragmentActivity): String {
-        val key = core { MagpieCore.bitwardenKey() } ?: return LOCKED_FIRST
-        return try {
-            biometrics.seal(activity, key).problem
-        } finally {
-            key.fill(0)
-        }
+    suspend fun signOut(): Status = core {
+        savedKey.forget()
+        parseStatus(MagpieCore.bitwardenSignOut())
     }
 
-    suspend fun unlockWithBiometrics(activity: FragmentActivity, current: Status): Status =
-        when (val opening = biometrics.open(activity)) {
-            is Opening.Opened -> unlock(opening.secret)
-            is Opening.Closed -> current.copy(error = opening.approval.problem)
-            Opening.Expired -> current.copy(error = BIOMETRICS_EXPIRED)
-        }
-
-    private suspend fun unlock(key: ByteArray): Status {
-        val status = try {
-            core { parseStatus(MagpieCore.bitwardenUnlockWithKey(key)) }
-        } finally {
-            key.fill(0)
-        }
-        if (status.lock != Lock.Unlocked) biometrics.forget()
+    private suspend fun keepingKey(status: Status): Status {
+        if (status.lock == Lock.Unlocked) core { saveKey() }
         return status
+    }
+
+    private fun saveKey() {
+        val key = MagpieCore.bitwardenKey() ?: return
+        try {
+            savedKey.save(key)
+        } finally {
+            key.fill(0)
+        }
+    }
+
+    private suspend fun unlockWithSavedKey(locked: Status): Status {
+        val status = core { savedKey.open()?.let { key -> unlockWith(key) } } ?: return locked
+        if (status.lock == Lock.Unlocked) return status
+        core { savedKey.forget() }
+        return status.copy(error = "")
+    }
+
+    private fun unlockWith(key: ByteArray): Status = try {
+        parseStatus(MagpieCore.bitwardenUnlockWithKey(key))
+    } finally {
+        key.fill(0)
     }
 
     suspend fun matches(url: String): List<Login> = core { parseLogins(MagpieCore.bitwardenMatches(url)) }

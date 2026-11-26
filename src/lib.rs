@@ -18,6 +18,7 @@ pub mod stream_download;
 pub mod system_theme;
 pub mod ui;
 pub mod update;
+pub mod vault_key;
 pub mod webview;
 pub mod zoom;
 

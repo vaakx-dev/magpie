@@ -58,13 +58,9 @@ pub enum PasswordAction {
     Unlock {
         password: Secret,
     },
-    UnlockWithHello,
     Lock,
     Sync,
     SignOut,
-    SetHello {
-        on: bool,
-    },
     Search {
         query: String,
     },

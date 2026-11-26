@@ -3,7 +3,7 @@ use url::Url;
 
 use super::{
     fill,
-    keyring::{Keyring, Phase},
+    keyring::Phase,
     look::{FLOAT_CORNER_PX, MASKED_PASSWORD, login_name},
     unlock::AfterUnlock,
 };
@@ -91,25 +91,15 @@ impl Browser {
             .collect()
     }
 
-    fn unlock_row(
-        &self,
-        view: &Entity<WebView>,
-        keyring: &Keyring,
-        cx: &Context<Self>,
-    ) -> AnyElement {
+    fn unlock_row(&self, view: &Entity<WebView>, cx: &Context<Self>) -> AnyElement {
         let look = self.look();
-        let hello = keyring.hello_ready();
-        let detail = match hello {
-            true => Text::WindowsHello,
-            false => Text::MasterPassword,
-        };
         let view = view.clone();
         look.row("autofill-unlock")
             .child(look.avatar(Icon::Lock.tinted(rgba(look.colors.text))))
-            .child(look.titled(look.text(Text::UnlockToFill), look.text(detail)))
-            .when(hello, |row| {
-                row.child(Icon::ScanFace.tinted(rgba(look.colors.muted)))
-            })
+            .child(look.titled(
+                look.text(Text::UnlockToFill),
+                look.text(Text::MasterPassword),
+            ))
             .on_click(
                 cx.listener(move |browser, _, window, cx| {
                     browser.unlock_to_fill(&view, window, cx)
@@ -153,15 +143,14 @@ impl Browser {
         cx: &Context<Self>,
     ) -> Vec<AnyElement> {
         let keyring = window::keyring(cx);
-        let keyring = keyring.read(cx);
         let generate = asks_for_password(field.role).then(|| self.generate_row(view, cx));
         let place = site(page).unwrap_or_default();
-        let (saved, signed_in) = match keyring.phase() {
+        let (saved, signed_in) = match keyring.read(cx).phase() {
             Phase::Unlocked(vault) => {
                 let logins = vault.matches_for_url(page.as_str());
                 (self.login_rows(view, &logins, &place, cx), true)
             }
-            Phase::Locked(_) => (vec![self.unlock_row(view, keyring, cx)], true),
+            Phase::Locked(_) => (vec![self.unlock_row(view, cx)], true),
             Phase::Busy | Phase::Unavailable(_) | Phase::SignedOut | Phase::Challenged(_) => {
                 (Vec::new(), false)
             }

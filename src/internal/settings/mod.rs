@@ -4,7 +4,7 @@ mod reply;
 use url::Url;
 
 pub use message::{Host, Import, Message, Part, PasswordAction, Secret};
-pub use reply::{BackupStatus, Challenge, Hello, LoginRow, Method, Passwords, Reply, Snapshot};
+pub use reply::{BackupStatus, Challenge, LoginRow, Method, Passwords, Reply, Snapshot};
 
 use super::{Asset, Page};
 

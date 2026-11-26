@@ -4,26 +4,22 @@ use std::{
     slice,
 };
 
+use magpie_engine::bitwarden::{Error, SymmetricKey, Vault};
 use windows::{
-    Security::Credentials::UI::{
-        UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
-    },
     Win32::{
-        Foundation::{HLOCAL, HWND, LocalFree},
+        Foundation::{HLOCAL, LocalFree},
         Security::Cryptography::{
             CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData, CryptUnprotectData,
         },
-        System::WinRT::IUserConsentVerifierInterop,
     },
-    core::{HSTRING, factory, w},
+    core::w,
 };
-use windows_future::IAsyncOperation;
 use zeroize::{Zeroize, Zeroizing};
 
-const KEY_FILE: &str = "hello.key";
+const FILE_NAME: &str = "vault.key";
 
 #[derive(Clone)]
-pub struct KeyFile(PathBuf);
+pub struct VaultKey(PathBuf);
 
 fn blob(bytes: &[u8]) -> CRYPT_INTEGER_BLOB {
     CRYPT_INTEGER_BLOB {
@@ -74,50 +70,40 @@ fn unprotect(sealed: &[u8]) -> io::Result<Zeroizing<Vec<u8>>> {
     Ok(taken(secret))
 }
 
-impl KeyFile {
+impl VaultKey {
     pub fn in_folder(folder: &Path) -> Self {
-        Self(folder.join(KEY_FILE))
+        Self(folder.join(FILE_NAME))
     }
 
-    pub fn exists(&self) -> bool {
+    pub fn saved(&self) -> bool {
         self.0.exists()
     }
 
-    pub fn store(&self, key: &[u8]) -> io::Result<()> {
-        fs::write(&self.0, protect(key)?)
+    pub fn save(&self, vault: &Vault) -> Result<(), Error> {
+        let key = vault.key()?.bytes();
+        Ok(fs::write(&self.0, protect(&key)?)?)
     }
 
-    pub fn load(&self) -> io::Result<Zeroizing<Vec<u8>>> {
-        unprotect(&fs::read(&self.0)?)
+    pub fn unlock(&self, vault: &mut Vault) -> Result<(), Error> {
+        let key = SymmetricKey::from_bytes(&unprotect(&fs::read(&self.0)?)?)?;
+        vault.unlock_with_key(key)
     }
 
-    pub fn forget(&self) -> io::Result<()> {
+    pub fn lock(&self, vault: &mut Vault) -> io::Result<()> {
+        vault.lock();
+        self.forget()
+    }
+
+    pub fn sign_out(&self, vault: &mut Vault) -> Result<(), Error> {
+        let signed_out = vault.sign_out();
+        self.forget()?;
+        signed_out
+    }
+
+    fn forget(&self) -> io::Result<()> {
         match fs::remove_file(&self.0) {
             Err(error) if error.kind() != io::ErrorKind::NotFound => Err(error),
             _ => Ok(()),
         }
     }
-}
-
-pub async fn available() -> bool {
-    let Ok(check) = UserConsentVerifier::CheckAvailabilityAsync() else {
-        return false;
-    };
-    check
-        .await
-        .is_ok_and(|availability| availability == UserConsentVerifierAvailability::Available)
-}
-
-pub async fn verify(window: HWND, reason: HSTRING) -> bool {
-    let Ok(interop) = factory::<UserConsentVerifier, IUserConsentVerifierInterop>() else {
-        return false;
-    };
-    let request: windows::core::Result<IAsyncOperation<UserConsentVerificationResult>> =
-        unsafe { interop.RequestVerificationForWindowAsync(window, &reason) };
-    let Ok(request) = request else {
-        return false;
-    };
-    request
-        .await
-        .is_ok_and(|result| result == UserConsentVerificationResult::Verified)
 }

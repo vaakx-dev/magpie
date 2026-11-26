@@ -1,7 +1,6 @@
 mod clipboard;
 mod dropdown;
 mod fill;
-mod hello;
 mod keyring;
 mod look;
 mod offer;

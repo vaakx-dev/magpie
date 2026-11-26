@@ -60,7 +60,7 @@ pub use download::Transfer;
 pub use memory::{FrameId, Memory};
 pub use permission::Prompt as PermissionPrompt;
 pub use profile::default_downloads;
-pub use runtime::{Environment, Runtime, Setup, window_handle};
+pub use runtime::{Environment, Runtime, Setup};
 pub use snapshot::{HEIGHT_PX as SNAPSHOT_HEIGHT_PX, WIDTH_PX as SNAPSHOT_WIDTH_PX};
 
 use crate::{

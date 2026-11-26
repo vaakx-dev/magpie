@@ -10,9 +10,7 @@ use magpie::{
     import::{Report, Scope},
     internal::{
         Message, Page, resource,
-        settings::{
-            self, Hello, Host, PasswordAction, Passwords, Reply, Secret, Section, Snapshot,
-        },
+        settings::{self, Host, PasswordAction, Passwords, Reply, Secret, Section, Snapshot},
     },
     pages::PageAction,
     storage::{
@@ -64,10 +62,6 @@ fn state(settings: &Settings, scheme: Scheme, default_downloads: Option<PathBuf>
         data_folder: Path::new("C:/Data/Magpie"),
         passwords: Passwords::Locked {
             email: Some("sam@example.com".to_owned()),
-            hello: Hello {
-                available: true,
-                on: true,
-            },
             problem: None,
         },
         profiles: &profiles,
@@ -213,9 +207,9 @@ fn parses_settings_page_messages() {
         })
     );
     assert_eq!(
-        settings_message(json!({"type": "passwords", "action": {"kind": "set_hello", "on": true}})),
+        settings_message(json!({"type": "passwords", "action": {"kind": "lock"}})),
         Some(settings::Message::Passwords {
-            action: PasswordAction::SetHello { on: true },
+            action: PasswordAction::Lock,
         })
     );
     assert_eq!(
@@ -348,7 +342,6 @@ fn state_reflects_settings_changed_by_the_page() {
         json!({
             "status": "locked",
             "email": "sam@example.com",
-            "hello": {"available": true, "on": true},
             "problem": null,
         })
     );

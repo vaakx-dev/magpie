@@ -102,8 +102,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.biometric)
-    implementation(libs.androidx.fragment)
     implementation(libs.androidx.swiperefreshlayout)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)

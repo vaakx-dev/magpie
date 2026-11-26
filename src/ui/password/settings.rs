@@ -1,5 +1,4 @@
 use gpui::{App, ClipboardItem, Context, WeakEntity};
-use windows::{Win32::Foundation::HWND, core::HSTRING};
 use zeroize::Zeroizing;
 
 use super::{
@@ -8,12 +7,12 @@ use super::{
 };
 use crate::{
     internal::settings::{
-        Challenge, Hello, Host, LoginRow, Method as MethodChoice, Part, PasswordAction, Passwords,
-        Reply, Secret,
+        Challenge, Host, LoginRow, Method as MethodChoice, Part, PasswordAction, Passwords, Reply,
+        Secret,
     },
     locale::{Locale, Text},
     ui::{browser::Browser, window},
-    webview::{WebView, window_handle},
+    webview::WebView,
 };
 use magpie_engine::bitwarden::{CipherId, Login, Method, Proof, Server};
 
@@ -41,15 +40,7 @@ fn problem_text(problem: Option<&Problem>, locale: Locale) -> Option<String> {
     Some(match problem? {
         Problem::Failed(message) => message.clone(),
         Problem::WrongCode => locale.text(Text::WrongCode).to_owned(),
-        Problem::HelloExpired => locale.text(Text::HelloExpired).to_owned(),
     })
-}
-
-fn hello(keyring: &Keyring) -> Hello {
-    Hello {
-        available: keyring.hello_available(),
-        on: keyring.hello_on(),
-    }
 }
 
 pub fn passwords_state(keyring: &Keyring, locale: Locale) -> Passwords {
@@ -76,13 +67,11 @@ pub fn passwords_state(keyring: &Keyring, locale: Locale) -> Passwords {
         },
         Phase::Locked(vault) => Passwords::Locked {
             email: vault.email().map(str::to_owned),
-            hello: hello(keyring),
             problem,
         },
         Phase::Unlocked(vault) => Passwords::Unlocked {
             email: vault.email().map(str::to_owned),
             logins: vault.logins().len(),
-            hello: hello(keyring),
             problem,
         },
     }
@@ -177,24 +166,6 @@ fn copy(id: &CipherId, wanted: Part, cx: &mut App) {
 }
 
 impl Browser {
-    fn with_window_handle(
-        &self,
-        then: impl FnOnce(HWND, HSTRING, &mut App) + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        let window = self.runtime.window();
-        let reason = HSTRING::from(self.text(Text::HelloReason));
-        cx.defer(move |cx| {
-            let handle = window
-                .update(cx, |_, window, _| window_handle(window))
-                .ok()
-                .and_then(Result::ok);
-            if let Some(handle) = handle {
-                then(handle, reason, cx);
-            }
-        });
-    }
-
     fn reply_logins(&self, view: &WeakEntity<WebView>, query: &str, cx: &mut Context<Self>) {
         let keyring = window::keyring(cx);
         let rows = match keyring.read(cx).phase() {
@@ -232,24 +203,9 @@ impl Browser {
             PasswordAction::Unlock { password } => {
                 keyring.update(cx, |keyring, cx| keyring.unlock(password.0, cx))
             }
-            PasswordAction::UnlockWithHello => self.with_window_handle(
-                move |handle, reason, cx| {
-                    keyring.update(cx, |keyring, cx| {
-                        keyring.unlock_with_hello(handle, reason, cx)
-                    })
-                },
-                cx,
-            ),
             PasswordAction::Lock => keyring.update(cx, Keyring::lock),
             PasswordAction::Sync => keyring.update(cx, Keyring::sync),
             PasswordAction::SignOut => keyring.update(cx, Keyring::sign_out),
-            PasswordAction::SetHello { on: true } => self.with_window_handle(
-                move |handle, reason, cx| {
-                    keyring.update(cx, |keyring, cx| keyring.turn_on_hello(handle, reason, cx))
-                },
-                cx,
-            ),
-            PasswordAction::SetHello { on: false } => keyring.update(cx, Keyring::turn_off_hello),
             PasswordAction::Search { query } => self.reply_logins(&view, &query, cx),
             PasswordAction::Copy { id, part } => copy(&id, part, cx),
         }

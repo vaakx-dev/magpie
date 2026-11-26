@@ -14,7 +14,7 @@ Grab the latest Windows installer, portable `.exe`, or Android APK from [Release
 - **Built-in Ad & Tracker Blocker** — native Rust + WASM engine powered by EasyList, EasyPrivacy, and uBlock Origin lists, plus URL tracker stripping and HTTPS-Only mode.
 - **Distraction Blocker** — hides YouTube Shorts (and redirects `/shorts/` to normal watch pages), Playables, Members-only videos, Reels, and algorithmic feeds across PC and mobile.
 - **Built-in Add-ons** — SponsorBlock, Reader Mode, Force Dark Mode, Background Play (Android), and video downloads.
-- **Standalone Bitwarden Client** — sign in with 2FA, fill logins right under the field or from the address-bar key, save new and changed passwords, unlock with Windows Hello, copy TOTP codes, and generate passwords with no extension required. On Android, Magpie hands logins to your phone's autofill service by default.
+- **Standalone Bitwarden Client** — sign in with 2FA, fill logins right under the field or from the address-bar key, save new and changed passwords, stay unlocked across restarts once signed in, copy TOTP codes, and generate passwords with no extension required. On Android, Magpie hands logins to your phone's autofill service by default.
 - **Auto-Updates** — checks GitHub Releases automatically on both Windows and Android.
 
 ## Build from Source
