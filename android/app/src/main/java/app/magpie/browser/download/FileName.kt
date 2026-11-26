@@ -15,7 +15,7 @@ private val ESCAPE = Regex("""\\(.)""")
 private val UNSAFE = Regex("""[\\/:*?"<>|\p{Cntrl}]""")
 
 private fun decoded(encoded: String, charset: Charset): String? =
-    runCatching { URLDecoder.decode(encoded.replace("+", "%2B"), charset) }.getOrNull()
+    runCatching { URLDecoder.decode(encoded.replace("+", "%2B"), charset.name()) }.getOrNull()
 
 private fun charset(name: String): Charset =
     try {
