@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -36,11 +35,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.magpie.browser.browser.Browser
+import app.magpie.browser.theme.CARD_SHAPE
+import app.magpie.browser.theme.CONTROL_SHAPE
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.SearchBox
-
-private val CARD_SHAPE = RoundedCornerShape(12.dp)
-private val ICON_SHAPE = RoundedCornerShape(8.dp)
 
 private fun on(enabled: Boolean): String = if (enabled) "on" else "off"
 
@@ -50,7 +48,7 @@ private fun summary(category: Category, browser: Browser): String {
         Category.General -> "${browser.spaces.saved.size} spaces · Swipe tabs ${on(settings.swipeTabs)}"
         Category.Appearance -> "${settings.theme.label} theme · ${settings.menuSide.placement}"
         Category.Search -> settings.search.engine.label
-        Category.Privacy -> "Ad blocker ${on(settings.privacy.adBlock)} · Tracking protection ${on(settings.privacy.trackingProtection)}"
+        Category.Privacy -> "Magpie Shield ${on(settings.privacy.adBlock)} · Tracking protection ${on(settings.privacy.trackingProtection)}"
         Category.Passwords -> settings.passwordService.label
         Category.Addons -> "SponsorBlock ${on(settings.sponsorBlock.view?.enabled == true)} · Background play ${on(settings.backgroundPlay)}"
         Category.About -> "Version ${browser.updates.version} · ${settings.updateChannel.label} updates"
@@ -66,7 +64,7 @@ private fun CategoryCard(icon: ImageVector, title: String, detail: String, onOpe
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(38.dp).clip(ICON_SHAPE).background(colors.surfaceVariant), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(38.dp).clip(CONTROL_SHAPE).background(colors.surfaceVariant), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, Modifier.size(20.dp), tint = colors.onSurface)
         }
         Column(Modifier.weight(1f)) {

@@ -8,18 +8,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,19 +24,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.magpie.browser.theme.CARD_SHAPE
+import app.magpie.browser.theme.IconAction
 import app.magpie.browser.theme.Toggle
 
 typealias Line = @Composable () -> Unit
 
-private val CARD_SHAPE = RoundedCornerShape(12.dp)
 private val ICON_SIZE = 22.dp
 
 @Composable
 fun Bar(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
-        }
+        IconAction(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack, tint = MaterialTheme.colorScheme.onSurface)
         Text(
             title,
             style = MaterialTheme.typography.titleLarge,
@@ -119,25 +114,3 @@ fun PickItem(title: String, picked: Boolean, onPick: () -> Unit) {
         if (picked) Icon(Icons.Outlined.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.onSurface)
     }
 }
-
-@Composable
-fun ActionIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick) { Icon(icon, description, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-}
-
-@Composable
-fun Confirm(title: String, text: String, action: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-        title = { Text(title) },
-        text = { Text(text) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(action) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
-}
-
-@Composable
-fun ConfirmClear(title: String, text: String, onConfirm: () -> Unit, onDismiss: () -> Unit) =
-    Confirm(title, text, "Clear", onConfirm, onDismiss)

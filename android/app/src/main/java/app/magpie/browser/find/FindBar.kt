@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -15,8 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,16 +34,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import app.magpie.browser.browser.Tab
+import app.magpie.browser.theme.CONTROL_SHAPE
+import app.magpie.browser.theme.IconAction
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSession.FinderResult
 
-private val PILL = RoundedCornerShape(50)
-
 @Composable
 private fun Action(icon: ImageVector, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
-        Icon(icon, contentDescription = description, tint = MaterialTheme.colorScheme.onSurface)
-    }
+    IconAction(icon, description, onClick, tint = MaterialTheme.colorScheme.onSurface)
 }
 
 @Composable
@@ -71,13 +66,13 @@ fun FindBar(tab: Tab, onClose: () -> Unit) {
     DisposableEffect(finder) { onDispose { finder.clear() } }
     BackHandler(onBack = onClose)
     Surface(
-        shape = PILL,
+        shape = CONTROL_SHAPE,
         color = colors.surface,
         contentColor = colors.onSurface,
         shadowElevation = 3.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).height(46.dp),
     ) {
-        Row(Modifier.padding(start = 18.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             BasicTextField(
                 state = state,
                 lineLimits = TextFieldLineLimits.SingleLine,

@@ -7,8 +7,6 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SystemUpdate
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +23,7 @@ import app.magpie.browser.theme.Choices
 import app.magpie.browser.theme.Field
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Section
+import app.magpie.browser.theme.TextAction
 import app.magpie.browser.update.Channel
 import app.magpie.browser.update.offer
 import app.magpie.browser.update.summary
@@ -112,7 +111,7 @@ private fun PausedChannels(settings: Settings, channels: List<String>) {
         channels.map { channel ->
             {
                 Item(null, channel, onClick = {}, detail = "Nothing is skipped on this channel") {
-                    TextButton(onClick = { settings.sponsorBlock = settings.sponsorBlock.resume(channel) }) { Text("Remove") }
+                    TextAction("Remove", onClick = { settings.sponsorBlock = settings.sponsorBlock.resume(channel) })
                 }
             }
         },
@@ -151,33 +150,32 @@ private fun DistractionBlocker(settings: Settings) {
 private fun Addons(settings: Settings) {
     SponsorBlockSettings(settings)
     DistractionBlocker(settings)
-    Section("Media")
+    Section("Background play")
     Card(
         listOf {
             SwitchItem(
                 Icons.Outlined.Headphones,
-                "Background play",
+                "Keep media playing in background",
                 checked = settings.backgroundPlay,
                 onChange = { settings.backgroundPlay = it },
-                detail = "Keeps videos and audio playing when you switch apps or turn off the screen",
+                detail = "Videos and music keep playing when you switch apps or turn off the screen",
             )
         },
     )
-    Section("Page tools")
+    Section("Force dark mode")
     Card(
-        listOf(
-            { Item(Icons.AutoMirrored.Outlined.ChromeReaderMode, "Reader mode", onClick = {}, detail = "Open it from the menu on any article") },
-            {
-                SwitchItem(
-                    Icons.Outlined.DarkMode,
-                    "Force dark mode",
-                    checked = settings.forceDark.enabled,
-                    onChange = { settings.forceDark = settings.forceDark.copy(enabled = it) },
-                    detail = "Darkens pages that have no dark theme",
-                )
-            },
-        ),
+        listOf {
+            SwitchItem(
+                Icons.Outlined.DarkMode,
+                "Force dark mode",
+                checked = settings.forceDark.enabled,
+                onChange = { settings.forceDark = settings.forceDark.copy(enabled = it) },
+                detail = "Default for every site. Change it for one site from the menu.",
+            )
+        },
     )
+    Section("Reader mode")
+    Card(listOf { Item(Icons.AutoMirrored.Outlined.ChromeReaderMode, "Reader mode", onClick = {}, detail = "Open it from the menu on any article") })
 }
 
 @Composable

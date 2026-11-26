@@ -21,6 +21,7 @@ import app.magpie.browser.backup.backupName
 import app.magpie.browser.backup.open
 import app.magpie.browser.backup.save
 import app.magpie.browser.browser.Browser
+import app.magpie.browser.theme.Confirmation
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Section
 import kotlinx.coroutines.launch
@@ -67,7 +68,7 @@ fun Backups(browser: Browser) {
     )
     message?.let { Note(it) }
     pending?.let { backup ->
-        Confirm(
+        Confirmation(
             "Restore this backup?",
             "Replaces your settings and favorites with the backup's and adds its spaces. Open tabs stay open.",
             "Restore",

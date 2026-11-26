@@ -24,8 +24,8 @@ import app.magpie.browser.browser.Tab
 import app.magpie.browser.favicon.Origin
 import app.magpie.browser.permission.Decision
 import app.magpie.browser.permission.Kind
-import app.magpie.browser.settings.ConfirmClear
 import app.magpie.browser.space.Profile
+import app.magpie.browser.theme.Confirmation
 import app.magpie.browser.theme.Entry
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Section
@@ -54,7 +54,7 @@ private fun Connection(tab: Tab, origin: Origin) {
 @Composable
 private fun Shield(browser: Browser, tab: Tab, site: Site) {
     val privacy = browser.settings.privacy
-    if (!privacy.adBlock) return Entry(Icons.Outlined.Shield, "Magpie Shield", onClick = {}, detail = "The ad blocker is off for every site", enabled = false)
+    if (!privacy.adBlock) return Entry(Icons.Outlined.Shield, "Magpie Shield", onClick = {}, detail = "Turned off for every site in Settings", enabled = false)
     val blocking = privacy.blocksAdsOn(site)
     ToggleEntry(
         Icons.Outlined.Shield,
@@ -102,9 +102,10 @@ private fun ClearData(browser: Browser, site: Site, onDone: () -> Unit) {
     var confirming by remember { mutableStateOf(false) }
     Entry(Icons.Outlined.DeleteSweep, "Clear site data", onClick = { confirming = true }, detail = "Cookies, storage and cache for ${site.name}")
     if (!confirming) return
-    ConfirmClear(
+    Confirmation(
         "Clear data for ${site.name}?",
         "Deletes this site's cookies, storage and cache. You'll be signed out of it.",
+        "Clear",
         onConfirm = {
             browser.engine.clear(site)
             onDone()

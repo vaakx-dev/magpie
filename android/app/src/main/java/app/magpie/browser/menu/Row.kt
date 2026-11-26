@@ -14,14 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +33,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.magpie.browser.favicon.Favicon
+import app.magpie.browser.theme.CONTROL_SHAPE
+import app.magpie.browser.theme.IconAction
 
 val PANEL_PADDING = 4.dp
 val ROW_HEIGHT = 44.dp
@@ -42,7 +42,6 @@ val ICON_SIZE = 20.dp
 
 private val DIVIDER_INSET = 6.dp
 private val DIVIDER_SIDE = DIVIDER_INSET - PANEL_PADDING
-private val ROW_SHAPE = RoundedCornerShape(6.dp)
 private val LIST_MAX_HEIGHT = 336.dp
 
 @Composable
@@ -73,7 +72,7 @@ fun Line(
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
-        Modifier.fillMaxWidth().height(ROW_HEIGHT).clip(ROW_SHAPE).then(modifier).padding(horizontal = 10.dp),
+        Modifier.fillMaxWidth().height(ROW_HEIGHT).clip(CONTROL_SHAPE).then(modifier).padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -122,9 +121,7 @@ fun Link(url: String, title: String, onOpen: () -> Unit) {
 fun Header(title: String, onBack: () -> Unit) {
     val color = MaterialTheme.colorScheme.onSurface
     Row(Modifier.fillMaxWidth().height(ROW_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = "Back", tint = color)
-        }
+        IconAction(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "Back", onBack, tint = color)
         Text(
             title,
             color = color,

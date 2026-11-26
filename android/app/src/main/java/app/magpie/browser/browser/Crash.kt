@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,9 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import app.magpie.browser.prompt.Confirm
-
-private val CARD_SHAPE = RoundedCornerShape(12.dp)
+import app.magpie.browser.theme.CARD_SHAPE
+import app.magpie.browser.theme.SolidButton
 
 @Composable
 fun Crashed(tab: Tab) {
@@ -34,7 +32,7 @@ fun Crashed(tab: Tab) {
                 color = colors.onSurface,
                 textAlign = TextAlign.Center,
             )
-            Confirm("Reload tab", onClick = tab::recover)
+            SolidButton("Reload tab", onClick = tab::recover)
         }
     }
 }
