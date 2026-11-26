@@ -30,6 +30,7 @@ const val NATIVE_APP = "magpie"
 
 private const val EXTENSION_URL = "resource://android/assets/extension/"
 private const val EXTENSION_ID = "magpie@magpie.app"
+private const val STARTUP_TIMEOUT_MS = 1500L
 private const val COOKIES = ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY_AND_ISOLATE_OTHERS
 
 private val COLOR_SCHEMES = mapOf(
@@ -77,6 +78,7 @@ class Engine(context: Context, private val settings: Settings, private val scope
 
     private val dataDir = context.filesDir
     private var blocker: WebExtension.Port? = null
+    val ready = Gate(scope, STARTUP_TIMEOUT_MS)
 
     val runtime: GeckoRuntime = GeckoRuntime.create(
         context,
@@ -149,6 +151,10 @@ class Engine(context: Context, private val settings: Settings, private val scope
             sendSnapshot(Filter::cachedSnapshot)
             sendSnapshot(Filter::refreshedSnapshot)
         }
+    }
+
+    override fun onPortMessage(message: Any, port: WebExtension.Port) {
+        if ((message as? JSONObject)?.optString("kind") == "ready") ready.open()
     }
 
     override fun onDisconnect(port: WebExtension.Port) {

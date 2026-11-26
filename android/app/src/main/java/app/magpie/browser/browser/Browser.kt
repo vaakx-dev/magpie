@@ -138,7 +138,7 @@ class Browser(private val context: Context) {
 
     fun switch(space: Space) {
         this.space = space
-        tab?.wake()
+        wakeSelected()
     }
 
     fun addSpace(name: String, profile: Profile.Named?) = switch(spaces.add(name, profile))
@@ -201,6 +201,8 @@ class Browser(private val context: Context) {
         tabs.add(index, it)
     }
 
+    private fun wakeSelected() = engine.ready.then { tab?.wake() }
+
     private fun discard(tab: Tab) {
         val siblings = tabs.filter { it.space == tab.space }
         val neighbour = siblings.getOrNull(siblings.indexOf(tab) - 1) ?: siblings.getOrNull(1)
@@ -209,7 +211,7 @@ class Browser(private val context: Context) {
         if (tabs.none { it.space == Space.PRIVATE }) privateZooms = zooms.inMemory()
         if (selected[tab.space.id] != tab) return
         if (neighbour == null) selected.remove(tab.space.id) else selected[tab.space.id] = neighbour
-        this.tab?.wake()
+        wakeSelected()
     }
 
     private fun savedTabs(): SavedTabs =

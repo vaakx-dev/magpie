@@ -16,6 +16,8 @@ use url::Url;
 
 pub use list::filter_list;
 
+pub const YOUTUBE_SCRIPT: &str = include_str!("youtube.js");
+
 const BASELINE: &str = include_str!("baseline.txt");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

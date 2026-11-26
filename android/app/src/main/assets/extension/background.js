@@ -6,6 +6,18 @@ const FIELD_SEPARATOR = "\n";
 const WEB_PAGE = /^https?:/;
 const WWW = /^www\./;
 const TOP_FRAME = 0;
+const STARTUP_TIMEOUT_MS = 1500;
+const YOUTUBE_SITES = {
+  "youtube.com": ["*://youtube.com/*", "*://www.youtube.com/*"],
+  "m.youtube.com": ["*://m.youtube.com/*"],
+};
+const YOUTUBE_SCRIPT = {
+  id: "youtube",
+  js: ["youtube.js"],
+  runAt: "document_start",
+  world: "MAIN",
+  persistAcrossSessions: false,
+};
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -14,6 +26,10 @@ let blocking = true;
 let paused = new Set();
 let focus = {};
 let sponsorBlock;
+let filtering = false;
+let youtube = Promise.resolve();
+const filters = Promise.withResolvers();
+const configured = Promise.withResolvers();
 
 const exchange = (length) => {
   const pointer = blocker.exchange(length);
@@ -22,7 +38,7 @@ const exchange = (length) => {
 
 const write = (text) => encoder.encodeInto(text, exchange(text.length * MAX_UTF8_BYTES_PER_CHAR)).written;
 
-const ready = fetch(BLOCKER)
+const instantiated = fetch(BLOCKER)
   .then((response) => response.arrayBuffer())
   .then((module) => WebAssembly.instantiate(module))
   .then(({ instance }) => {
@@ -31,8 +47,10 @@ const ready = fetch(BLOCKER)
 
 const load = (snapshot) => {
   const { written } = exchange(Math.ceil(snapshot.length * BASE64_BYTES_PER_CHAR)).setFromBase64(snapshot);
-  blocker.load_snapshot(written);
+  if (blocker.load_snapshot(written) !== 0) filters.resolve();
 };
+
+const settled = (promise) => Promise.race([promise, new Promise((resolve) => setTimeout(resolve, STARTUP_TIMEOUT_MS))]);
 
 const site = (url) => (WEB_PAGE.test(url) ? new URL(url).hostname.replace(WWW, "") : undefined);
 
@@ -63,6 +81,32 @@ const inject = (code, { tabId, frameId, url }) => {
   if (code && WEB_PAGE.test(url)) browser.tabs.executeScript(tabId, { code, frameId, runAt: "document_start" });
 };
 
+const youtubeMatches = () =>
+  blocking
+    ? Object.entries(YOUTUBE_SITES)
+        .filter(([name]) => !paused.has(name))
+        .flatMap(([, matches]) => matches)
+    : [];
+
+const registerYoutube = (registered, matches) => {
+  if (registered && matches.length > 0) return browser.scripting.updateContentScripts([{ id: YOUTUBE_SCRIPT.id, matches }]);
+  if (registered) return browser.scripting.unregisterContentScripts({ ids: [YOUTUBE_SCRIPT.id] });
+  if (matches.length > 0) return browser.scripting.registerContentScripts([{ ...YOUTUBE_SCRIPT, matches }]);
+  return Promise.resolve();
+};
+
+const youtubeRegistered = () =>
+  browser.scripting.getRegisteredContentScripts({ ids: [YOUTUBE_SCRIPT.id] }).then((scripts) => scripts.length > 0);
+
+const syncYoutube = () => {
+  const matches = youtubeMatches();
+  youtube = youtube
+    .then(youtubeRegistered)
+    .then((registered) => registerYoutube(registered, matches))
+    .catch(console.error);
+  return youtube;
+};
+
 const refocus = (tabs) => {
   tabs.filter(({ url }) => WEB_PAGE.test(url)).forEach(({ id }) => browser.tabs.executeScript(id, { code: focus.update }));
 };
@@ -73,6 +117,8 @@ port.onMessage.addListener((message) => {
     case "blocking":
       blocking = message.enabled;
       paused = new Set(message.paused);
+      if (!blocking) filters.resolve();
+      syncYoutube().then(configured.resolve);
       return;
     case "focus":
       focus = message;
@@ -82,13 +128,22 @@ port.onMessage.addListener((message) => {
       sponsorBlock = message.script;
       return;
     case "snapshot":
-      ready.then(() => load(message.snapshot));
+      instantiated.then(() => load(message.snapshot));
       return;
   }
 });
 
+filters.promise.then(() => {
+  filtering = true;
+});
+Promise.all([filters.promise, configured.promise]).then(() => port.postMessage({ kind: "ready" }));
+
+const decision = (details) => ({ cancel: active(requestPage(details)) && blocks(details) });
+
+const decide = (details) => (filtering ? decision(details) : settled(filters.promise).then(() => decision(details)));
+
 browser.webRequest.onBeforeRequest.addListener(
-  (details) => ({ cancel: details.type !== "main_frame" && active(requestPage(details)) && blocks(details) }),
+  (details) => (details.type === "main_frame" ? undefined : decide(details)),
   { urls: ["<all_urls>"] },
   ["blocking"],
 );

@@ -5,6 +5,19 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+abstract class SharedExtensionScripts : DefaultTask() {
+    @get:InputFile
+    abstract val youtube: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val assets: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        youtube.get().asFile.copyTo(assets.file("extension/youtube.js").get().asFile, overwrite = true)
+    }
+}
+
 data class ReleaseKey(val store: File, val storePassword: String, val alias: String, val keyPassword: String)
 
 val RELEASE_KEY_FILE: File = rootProject.file("../secrets/android-release.properties")
@@ -36,6 +49,11 @@ fun keyFromFile(): ReleaseKey? {
 val releaseKey: ReleaseKey? = keyFromEnvironment() ?: keyFromFile()
 
 fun option(name: String): String? = findProperty(name) as String?
+
+val sharedExtensionScripts = tasks.register<SharedExtensionScripts>("sharedExtensionScripts") {
+    youtube = rootProject.file("../crates/magpie-engine/src/blocker/youtube.js")
+    assets = layout.buildDirectory.dir("generated/sharedExtensionScripts")
+}
 
 android {
     namespace = "app.magpie.browser"
@@ -98,6 +116,12 @@ android {
     }
 }
 
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(sharedExtensionScripts, SharedExtensionScripts::assets)
+    }
+}
+
 dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.core.ktx)
@@ -111,5 +135,6 @@ dependencies {
     debugImplementation(libs.compose.tooling)
 
     testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
     testImplementation(libs.json)
 }
