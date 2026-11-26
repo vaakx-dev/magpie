@@ -44,6 +44,12 @@ object MagpieCore {
 
     external fun bitwardenLock(): String
 
+    external fun bitwardenSignOut(): String
+
+    external fun bitwardenKey(): ByteArray?
+
+    external fun bitwardenUnlockWithKey(key: ByteArray): String
+
     external fun bitwardenMatches(url: String): String
 
     external fun bitwardenSearch(query: String): String

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,9 +27,12 @@ import androidx.compose.ui.unit.dp
 import app.magpie.browser.browser.Browser
 import app.magpie.browser.password.Service
 import app.magpie.browser.password.Status
+import app.magpie.browser.password.Vault
 import app.magpie.browser.password.changeAutofillService
+import app.magpie.browser.password.hostActivity
 import app.magpie.browser.password.summary
 import app.magpie.browser.theme.Note
+import kotlinx.coroutines.launch
 
 @Composable
 private fun ServiceOption(service: Service, picked: Boolean, onPick: () -> Unit) {
@@ -53,10 +58,34 @@ private fun SystemAutofill() {
 }
 
 @Composable
+private fun BiometricUnlock(vault: Vault) {
+    val activity = hostActivity()
+    val scope = rememberCoroutineScope()
+    var problem by remember { mutableStateOf("") }
+    val biometrics = vault.biometrics
+    Card(
+        listOf {
+            SwitchItem(
+                Icons.Outlined.Fingerprint,
+                "Unlock with biometrics",
+                checked = biometrics.on,
+                onChange = { on ->
+                    problem = ""
+                    if (on) scope.launch { problem = vault.turnOnBiometrics(activity) } else biometrics.forget()
+                },
+                detail = "Opens the vault with your fingerprint or face instead of your master password",
+            )
+        },
+    )
+    if (problem.isNotEmpty()) Note(problem)
+}
+
+@Composable
 private fun BuiltInVault(browser: Browser, onOpen: () -> Unit) {
     var status by remember { mutableStateOf<Status?>(null) }
     LaunchedEffect(Unit) { status = browser.vault.status() }
     Card(listOf { Link(Icons.Outlined.Key, "Open vault", onClick = onOpen, detail = summary(status)) })
+    if (status?.signedIn == true && browser.vault.biometrics.available) BiometricUnlock(browser.vault)
 }
 
 @Composable

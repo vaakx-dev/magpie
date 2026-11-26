@@ -14,12 +14,12 @@ private val DEFAULTS = listOf(
     Favorite("https://github.com/vaakx-dev/magpie", "Magpie"),
 )
 
-private fun decoded(json: String): List<Favorite> {
-    val array = JSONArray(json)
-    return (0 until array.length()).map { array.getJSONObject(it) }.map { Favorite(it.getString("url"), it.getString("title")) }
-}
+fun Favorite.json(): JSONObject = JSONObject().put("url", url).put("title", title)
 
-fun stored(json: String?): List<Favorite> = json?.let(::decoded) ?: DEFAULTS
+fun favorites(array: JSONArray): List<Favorite> =
+    (0 until array.length()).map { array.getJSONObject(it) }.map { Favorite(it.getString("url"), it.getString("title")) }
+
+fun stored(json: String?): List<Favorite> = json?.let { favorites(JSONArray(it)) } ?: DEFAULTS
 
 class Favorites(private val preferences: SharedPreferences) {
     val list = mutableStateListOf<Favorite>().apply { addAll(stored(preferences.getString(FAVORITES, null))) }
@@ -43,8 +43,14 @@ class Favorites(private val preferences: SharedPreferences) {
         save()
     }
 
+    fun restore(favorites: List<Favorite>) {
+        list.clear()
+        list.addAll(favorites.distinctBy(Favorite::url))
+        save()
+    }
+
     private fun save() {
-        val array = JSONArray(list.map { JSONObject().put("url", it.url).put("title", it.title) })
+        val array = JSONArray(list.map { it.json() })
         preferences.edit { putString(FAVORITES, array.toString()) }
     }
 }

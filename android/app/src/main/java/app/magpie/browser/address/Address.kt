@@ -1,6 +1,6 @@
 package app.magpie.browser.address
 
-import app.magpie.browser.settings.SearchEngine
+import app.magpie.browser.settings.Search
 
 private val SCHEME = Regex("^(https?|about|file|data|view-source|resource|moz-extension):", RegexOption.IGNORE_CASE)
 private val HOST = Regex(
@@ -10,9 +10,9 @@ private val HOST = Regex(
 
 fun looksLikeAddress(text: String): Boolean = SCHEME.containsMatchIn(text) || HOST.matches(text)
 
-fun resolve(input: String, engine: SearchEngine): String {
+fun resolve(input: String, search: Search): String {
     val text = input.trim()
     if (SCHEME.containsMatchIn(text)) return text
     if (HOST.matches(text)) return "https://$text"
-    return engine.search(text)
+    return search.url(text)
 }

@@ -124,15 +124,20 @@ fun PickItem(title: String, picked: Boolean, onPick: () -> Unit) {
 fun ActionIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
     IconButton(onClick = onClick) { Icon(icon, description, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
+
 @Composable
-fun ConfirmClear(title: String, text: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun Confirm(title: String, text: String, action: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         title = { Text(title) },
         text = { Text(text) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Clear") } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(action) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+@Composable
+fun ConfirmClear(title: String, text: String, onConfirm: () -> Unit, onDismiss: () -> Unit) =
+    Confirm(title, text, "Clear", onConfirm, onDismiss)

@@ -6,7 +6,8 @@ use std::{
 };
 
 use magpie_engine::bitwarden::{
-    Challenge, Credentials, Error, Login, Method, Proof, Server, SignIn, Status, Totp, Vault,
+    Challenge, Credentials, Error, Login, Method, Proof, Server, SignIn, Status, SymmetricKey,
+    Totp, Vault,
 };
 use serde::Serialize;
 use zeroize::Zeroizing;
@@ -61,9 +62,11 @@ struct Pending {
 enum Problem {
     Failed(Error),
     WrongCode,
+    StaleKey,
 }
 
 const WRONG_CODE: &str = "That code didn't work. Check it and try again.";
+const STALE_KEY: &str = "Biometric unlock no longer matches this vault and was turned off. Unlock with your master password, then turn it back on.";
 const SIGNED_OUT: Account<'static> = Account {
     state: "signedOut",
     email: None,
@@ -163,6 +166,7 @@ impl fmt::Display for Problem {
         match self {
             Self::Failed(error) => error.fmt(formatter),
             Self::WrongCode => formatter.write_str(WRONG_CODE),
+            Self::StaleKey => formatter.write_str(STALE_KEY),
         }
     }
 }
@@ -223,9 +227,24 @@ impl Keyring {
         Ok(())
     }
 
+    fn unlock_with_key(&mut self, key: &[u8]) -> Result<(), Problem> {
+        let key = SymmetricKey::from_bytes(key)?;
+        match self.vault.unlock_with_key(key) {
+            Err(Error::Tampered) => return Err(Problem::StaleKey),
+            result => result?,
+        }
+        sync_quietly();
+        Ok(())
+    }
+
     fn lock(&mut self) {
         self.challenge = None;
         self.vault.lock();
+    }
+
+    fn sign_out(&mut self) -> Result<(), Error> {
+        self.challenge = None;
+        self.vault.sign_out()
     }
 }
 
@@ -299,6 +318,20 @@ pub fn send_email_code() -> String {
 
 pub fn unlock(password: &str) -> String {
     account_after(|keyring| keyring.unlock(password))
+}
+
+pub fn unlock_with_key(key: &[u8]) -> String {
+    account_after(|keyring| keyring.unlock_with_key(key))
+}
+
+pub fn key() -> Option<Zeroizing<Vec<u8>>> {
+    let slot = slot();
+    let vault = &slot.as_ref()?.vault;
+    vault.key().ok().map(SymmetricKey::bytes)
+}
+
+pub fn sign_out() -> String {
+    account_after(Keyring::sign_out)
 }
 
 pub fn lock() -> String {

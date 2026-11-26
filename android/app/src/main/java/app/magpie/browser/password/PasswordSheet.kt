@@ -119,12 +119,22 @@ private fun TwoStep(
 }
 
 @Composable
-private fun Unlock(status: Status, busy: Boolean, onUnlock: (String) -> Unit) {
+private fun Unlock(
+    status: Status,
+    busy: Boolean,
+    onUnlock: (String) -> Unit,
+    onBiometricUnlock: (() -> Unit)?,
+    onSignOut: () -> Unit,
+) {
     val password = rememberTextFieldState()
     Note("Locked · ${status.email}")
     SecretField(password, "Master password")
     Problem(status.error)
     Action("Unlock", enabled = !busy && password.text.isNotEmpty()) { onUnlock(password.text.toString()) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        TextButton(enabled = !busy, onClick = onSignOut) { Text("Sign out") }
+        onBiometricUnlock?.let { TextButton(enabled = !busy, onClick = it) { Text("Unlock with biometrics") } }
+    }
 }
 
 @Composable
@@ -141,7 +151,7 @@ private fun LoginEntry(login: Login, onCopy: (String, String) -> Unit, onCopyCod
 }
 
 @Composable
-private fun Logins(browser: Browser, status: Status, onLock: () -> Unit) {
+private fun Logins(browser: Browser, status: Status, onLock: () -> Unit, onSignOut: () -> Unit) {
     val vault = browser.vault
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -161,6 +171,7 @@ private fun Logins(browser: Browser, status: Status, onLock: () -> Unit) {
         Text(status.email, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick = { scope.launch { generated = vault.generatePassword() } }) { Text("Generate") }
         TextButton(onClick = onLock) { Text("Lock") }
+        TextButton(onClick = onSignOut) { Text("Sign out") }
     }
     if (generated.isNotEmpty()) {
         Entry(Icons.Outlined.Key, generated, detail = "Generated password", onClick = { copySecret("Password", generated) }) {
@@ -180,11 +191,12 @@ private fun Logins(browser: Browser, status: Status, onLock: () -> Unit) {
 @Composable
 fun PasswordSheet(browser: Browser, onDismiss: () -> Unit) {
     val vault = browser.vault
+    val activity = hostActivity()
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<Status?>(null) }
     var busy by remember { mutableStateOf(false) }
     var emailSent by remember { mutableStateOf(false) }
-    val run = { call: suspend () -> Status ->
+    fun run(call: suspend () -> Status) {
         scope.launch {
             busy = true
             status = call()
@@ -208,8 +220,15 @@ fun PasswordSheet(browser: Browser, onDismiss: () -> Unit) {
                 onSendEmail = { run { vault.sendEmailCode().also { emailSent = it.error.isEmpty() } } },
                 onCancel = { run { vault.lock() } },
             )
-            Lock.Locked -> Unlock(current, busy) { password -> run { vault.unlock(password) } }
-            Lock.Unlocked -> Logins(browser, current, onLock = { run { vault.lock() } })
+            Lock.Locked -> Unlock(
+                current,
+                busy,
+                onUnlock = { password -> run { vault.unlock(password) } },
+                onBiometricUnlock = { run { vault.unlockWithBiometrics(activity, current) } }
+                    .takeIf { vault.biometrics.on && vault.biometrics.available },
+                onSignOut = { run { vault.signOut() } },
+            )
+            Lock.Unlocked -> Logins(browser, current, onLock = { run { vault.lock() } }, onSignOut = { run { vault.signOut() } })
         }
     }
 }

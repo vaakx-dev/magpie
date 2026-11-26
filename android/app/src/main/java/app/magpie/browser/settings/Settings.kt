@@ -13,7 +13,6 @@ import app.magpie.browser.privacy.Privacy
 import app.magpie.browser.site.Site
 import app.magpie.browser.sponsorblock.SponsorBlock
 import app.magpie.browser.update.Channel
-import java.net.URLEncoder
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -26,17 +25,20 @@ enum class MenuSide(val label: String) {
     val placement: String get() = "Menu on the ${label.lowercase()}"
 }
 
-enum class SearchEngine(val label: String, private val template: String) {
-    DuckDuckGo("DuckDuckGo", "https://duckduckgo.com/?q=%s"),
-    Google("Google", "https://www.google.com/search?q=%s"),
-    Brave("Brave Search", "https://search.brave.com/search?q=%s"),
-    Bing("Bing", "https://www.bing.com/search?q=%s");
+sealed interface Preference {
+    data class Text(val text: String) : Preference
 
-    fun search(query: String): String = template.replace("%s", URLEncoder.encode(query, Charsets.UTF_8.name()))
+    data class Switch(val on: Boolean) : Preference
+
+    data class Texts(val texts: Set<String>) : Preference
 }
 
-private class Stored<T>(initial: T, private val save: (T) -> Unit) : ReadWriteProperty<Any?, T> {
-    private var state by mutableStateOf(initial)
+private class Stored<T>(private val read: () -> T, private val save: (T) -> Unit) : ReadWriteProperty<Any?, T> {
+    private var state by mutableStateOf(read())
+
+    fun reload() {
+        state = read()
+    }
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): T = state
 
@@ -48,6 +50,7 @@ private class Stored<T>(initial: T, private val save: (T) -> Unit) : ReadWritePr
 
 private const val THEME = "theme"
 private const val SEARCH_ENGINE = "search_engine"
+private const val CUSTOM_SEARCH = "custom_search"
 private const val AD_BLOCK = "ad_block"
 private const val STRIP_TRACKING = "strip_tracking"
 private const val TRACKING_PROTECTION = "tracking_protection"
@@ -65,16 +68,56 @@ private const val UPDATE_CHANNEL = "update_channel"
 private const val PASSWORD_SERVICE = "password_service"
 private const val SPONSORBLOCK = "sponsorblock"
 
+private val KEYS = setOf(
+    THEME,
+    SEARCH_ENGINE,
+    CUSTOM_SEARCH,
+    AD_BLOCK,
+    STRIP_TRACKING,
+    TRACKING_PROTECTION,
+    HTTPS_ONLY,
+    GLOBAL_PRIVACY_CONTROL,
+    CLEAR_ON_EXIT,
+    PAUSED_SITES,
+    FORCE_DARK,
+    FORCE_DARK_SITES,
+    MENU_SIDE,
+    SWIPE_TABS,
+    BACKGROUND_PLAY,
+    AUTO_UPDATE,
+    UPDATE_CHANNEL,
+    PASSWORD_SERVICE,
+    SPONSORBLOCK,
+) + Distraction.entries.map(Distraction::key)
+
+private fun preference(value: Any?): Preference? = when (value) {
+    is String -> Preference.Text(value)
+    is Boolean -> Preference.Switch(value)
+    is Set<*> -> Preference.Texts(value.filterIsInstance<String>().toSet())
+    else -> null
+}
+
+private fun SharedPreferences.Editor.put(key: String, preference: Preference) {
+    when (preference) {
+        is Preference.Text -> putString(key, preference.text)
+        is Preference.Switch -> putBoolean(key, preference.on)
+        is Preference.Texts -> putStringSet(key, preference.texts)
+    }
+}
+
 class Settings(private val preferences: SharedPreferences) {
-    var theme: ThemeMode by stored(enumValue(THEME, ThemeMode.System)) { putString(THEME, it.name) }
+    private val properties = mutableListOf<Stored<*>>()
 
-    var menuSide: MenuSide by stored(enumValue(MENU_SIDE, MenuSide.Right)) { putString(MENU_SIDE, it.name) }
+    var theme: ThemeMode by stored({ enumValue(THEME, ThemeMode.System) }) { putString(THEME, it.name) }
 
-    var searchEngine: SearchEngine by stored(enumValue(SEARCH_ENGINE, SearchEngine.DuckDuckGo)) {
-        putString(SEARCH_ENGINE, it.name)
+    var menuSide: MenuSide by stored({ enumValue(MENU_SIDE, MenuSide.Right) }) { putString(MENU_SIDE, it.name) }
+
+    var search: Search by stored(::storedSearch) {
+        putString(SEARCH_ENGINE, it.engine.name)
+        putString(CUSTOM_SEARCH, it.custom)
     }
 
-    var privacy: Privacy by stored(storedPrivacy()) {
+    var privacy: Privacy by stored(::storedPrivacy) {
         putBoolean(AD_BLOCK, it.adBlock)
         putBoolean(STRIP_TRACKING, it.stripTracking)
         putBoolean(TRACKING_PROTECTION, it.trackingProtection)
@@ -84,36 +127,53 @@ class Settings(private val preferences: SharedPreferences) {
         putStringSet(PAUSED_SITES, it.pausedSites.map(Site::name).toSet())
     }
 
-    var forceDark: ForceDark by stored(ForceDark.stored(preferences.getBoolean(FORCE_DARK, false), preferences.getString(FORCE_DARK_SITES, null))) {
+    var forceDark: ForceDark by stored(::storedForceDark) {
         putBoolean(FORCE_DARK, it.enabled)
         putString(FORCE_DARK_SITES, it.encodedSites())
     }
 
-    var swipeTabs: Boolean by stored(preferences.getBoolean(SWIPE_TABS, true)) { putBoolean(SWIPE_TABS, it) }
+    var swipeTabs: Boolean by stored({ preferences.getBoolean(SWIPE_TABS, true) }) { putBoolean(SWIPE_TABS, it) }
 
-    var backgroundPlay: Boolean by stored(preferences.getBoolean(BACKGROUND_PLAY, true)) { putBoolean(BACKGROUND_PLAY, it) }
+    var backgroundPlay: Boolean by stored({ preferences.getBoolean(BACKGROUND_PLAY, true) }) { putBoolean(BACKGROUND_PLAY, it) }
 
-    var autoUpdate: Boolean by stored(preferences.getBoolean(AUTO_UPDATE, true)) { putBoolean(AUTO_UPDATE, it) }
+    var autoUpdate: Boolean by stored({ preferences.getBoolean(AUTO_UPDATE, true) }) { putBoolean(AUTO_UPDATE, it) }
 
-    var updateChannel: Channel by stored(enumValue(UPDATE_CHANNEL, Channel.Stable)) { putString(UPDATE_CHANNEL, it.name) }
+    var updateChannel: Channel by stored({ enumValue(UPDATE_CHANNEL, Channel.Stable) }) { putString(UPDATE_CHANNEL, it.name) }
 
-    var passwordService: Service by stored(enumValue(PASSWORD_SERVICE, Service.SystemAutofill)) {
+    var passwordService: Service by stored({ enumValue(PASSWORD_SERVICE, Service.SystemAutofill) }) {
         putString(PASSWORD_SERVICE, it.name)
     }
 
-    var focus: Focus by stored(storedFocus()) { focus ->
+    var focus: Focus by stored(::storedFocus) { focus ->
         Distraction.entries.forEach { putBoolean(it.key, focus.blocks(it)) }
     }
 
-    var sponsorBlock: SponsorBlock by stored(SponsorBlock(preferences.getString(SPONSORBLOCK, null).orEmpty())) {
+    var sponsorBlock: SponsorBlock by stored({ SponsorBlock(preferences.getString(SPONSORBLOCK, null).orEmpty()) }) {
         putString(SPONSORBLOCK, it.config)
     }
 
-    private fun <T> stored(initial: T, write: SharedPreferences.Editor.(T) -> Unit): ReadWriteProperty<Any?, T> =
-        Stored(initial) { value -> preferences.edit { write(value) } }
+    fun saved(): Map<String, Preference> =
+        preferences.all.filterKeys(KEYS::contains).mapNotNull { (key, value) -> preference(value)?.let { key to it } }.toMap()
+
+    fun restore(saved: Map<String, Preference>) {
+        preferences.edit {
+            KEYS.forEach(::remove)
+            saved.filterKeys(KEYS::contains).forEach { (key, preference) -> put(key, preference) }
+        }
+        properties.forEach(Stored<*>::reload)
+    }
+
+    private fun <T> stored(read: () -> T, write: SharedPreferences.Editor.(T) -> Unit): ReadWriteProperty<Any?, T> =
+        Stored(read) { value -> preferences.edit { write(value) } }.also { properties += it }
 
     private inline fun <reified T : Enum<T>> enumValue(key: String, default: T): T =
         enumValues<T>().find { it.name == preferences.getString(key, null) } ?: default
+
+    private fun storedSearch(): Search =
+        Search(enumValue(SEARCH_ENGINE, SearchEngine.DuckDuckGo), preferences.getString(CUSTOM_SEARCH, null).orEmpty())
+
+    private fun storedForceDark(): ForceDark =
+        ForceDark.stored(preferences.getBoolean(FORCE_DARK, false), preferences.getString(FORCE_DARK_SITES, null))
 
     private fun storedFocus(): Focus =
         Focus(Distraction.entries.filter { preferences.getBoolean(it.key, it.blockedByDefault) }.toSet())

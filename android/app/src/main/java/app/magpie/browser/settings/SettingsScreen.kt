@@ -49,7 +49,7 @@ private fun summary(category: Category, browser: Browser): String {
     return when (category) {
         Category.General -> "${browser.spaces.saved.size} spaces · Swipe tabs ${on(settings.swipeTabs)}"
         Category.Appearance -> "${settings.theme.label} theme · ${settings.menuSide.placement}"
-        Category.Search -> settings.searchEngine.label
+        Category.Search -> settings.search.engine.label
         Category.Privacy -> "Ad blocker ${on(settings.privacy.adBlock)} · Tracking protection ${on(settings.privacy.trackingProtection)}"
         Category.Passwords -> settings.passwordService.label
         Category.Addons -> "SponsorBlock ${on(settings.sponsorBlock.view?.enabled == true)} · Background play ${on(settings.backgroundPlay)}"

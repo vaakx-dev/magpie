@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import app.magpie.browser.address.resolve
+import app.magpie.browser.backup.Backup
 import app.magpie.browser.download.Downloads
 import app.magpie.browser.external.Apps
 import app.magpie.browser.favicon.Favicons
@@ -36,6 +37,7 @@ import org.mozilla.geckoview.WebExtension
 
 private const val PREFERENCES = "magpie"
 private const val TABS_FILE = "tabs.json"
+private const val ZOOMS_FILE = "zoom.json"
 
 private val Tab.saveable: Boolean get() = space.profile is Profile.Named && !blank
 
@@ -48,7 +50,10 @@ class Browser(private val context: Context) {
     val history = History(preferences)
     val downloads = Downloads(context, scope)
     val favicons = Favicons(context, scope)
-    val vault = Vault()
+    val vault = Vault(context)
+    val zooms = Zooms(JsonFile(context, ZOOMS_FILE, scope))
+    var privateZooms = zooms.inMemory()
+        private set
     val permissions = Permissions(preferences)
     val apps = Apps(context)
     val engine = Engine(context, settings, scope)
@@ -80,7 +85,7 @@ class Browser(private val context: Context) {
 
     fun load(input: String) {
         if (input.isBlank()) return
-        val address = clean(resolve(input, settings.searchEngine))
+        val address = clean(resolve(input, settings.search))
         (tab ?: open()).load(address)
     }
 
@@ -150,6 +155,14 @@ class Browser(private val context: Context) {
         if (this.space == space) switch(spaces.saved.first())
     }
 
+    fun backup(): Backup = Backup(settings.saved(), spaces.saved.toList(), favorites.list.toList())
+
+    fun restore(backup: Backup) {
+        settings.restore(backup.settings)
+        favorites.restore(backup.favorites)
+        backup.spaces.forEach(::merge)
+    }
+
     fun clean(url: String): String = Filter.clean(redirect(url) ?: url, settings.privacy)
 
     fun redirect(url: String): String? = settings.focus.redirect(url)
@@ -184,6 +197,7 @@ class Browser(private val context: Context) {
         val neighbour = siblings.getOrNull(siblings.indexOf(tab) - 1) ?: siblings.getOrNull(1)
         tabs -= tab
         tab.session.close()
+        if (tabs.none { it.space == Space.PRIVATE }) privateZooms = zooms.inMemory()
         if (selected[tab.space.id] != tab) return
         if (neighbour == null) selected.remove(tab.space.id) else selected[tab.space.id] = neighbour
         this.tab?.wake()
@@ -202,6 +216,11 @@ class Browser(private val context: Context) {
         val saved = tabsFile.read(::savedTabs) ?: return
         saved.spaces.forEach(::restoreSpace)
         switch(spaces.saved.find { it.id == saved.space } ?: space)
+    }
+
+    private fun merge(backedUp: Space) {
+        val existing = spaces.saved.find { it.id == backedUp.id }
+        if (existing == null) spaces.restore(backedUp) else renameSpace(existing, backedUp.name)
     }
 
     private fun restoreSpace(saved: SavedSpace) {

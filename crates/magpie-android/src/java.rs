@@ -2,9 +2,10 @@ use std::ptr::null_mut;
 
 use jni::{
     JNIEnv,
-    objects::JString,
+    objects::{JByteArray, JString},
     sys::{JNI_FALSE, JNI_TRUE, jboolean, jbyteArray, jstring},
 };
+use zeroize::Zeroizing;
 
 const ILLEGAL_STATE: &str = "java/lang/IllegalStateException";
 
@@ -20,6 +21,10 @@ pub fn string(env: &mut JNIEnv, value: &str) -> jstring {
 pub fn bytes(env: &mut JNIEnv, value: &[u8]) -> jbyteArray {
     env.byte_array_from_slice(value)
         .map_or(null_mut(), |array| array.into_raw())
+}
+
+pub fn secret(env: &mut JNIEnv, value: &JByteArray) -> Option<Zeroizing<Vec<u8>>> {
+    env.convert_byte_array(value).ok().map(Zeroizing::new)
 }
 
 pub fn truth(value: jboolean) -> bool {

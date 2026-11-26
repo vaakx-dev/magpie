@@ -12,7 +12,7 @@ use std::{
 
 use jni::{
     JNIEnv,
-    objects::{JClass, JString},
+    objects::{JByteArray, JClass, JString},
     sys::{jboolean, jbyteArray, jstring},
 };
 use magpie_engine::{bitwarden::password, blocker::snapshot, sponsorblock::Bridge};
@@ -255,6 +255,34 @@ pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_bitwardenLock<'lo
     _class: JClass<'local>,
 ) -> jstring {
     java::string(&mut env, &vault::lock())
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_bitwardenSignOut<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+) -> jstring {
+    java::string(&mut env, &vault::sign_out())
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_bitwardenKey<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+) -> jbyteArray {
+    vault::key().map_or(null_mut(), |key| java::bytes(&mut env, &key))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_bitwardenUnlockWithKey<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    key: JByteArray<'local>,
+) -> jstring {
+    let Some(key) = java::secret(&mut env, &key) else {
+        return null_mut();
+    };
+    java::string(&mut env, &vault::unlock_with_key(&key))
 }
 
 #[unsafe(no_mangle)]

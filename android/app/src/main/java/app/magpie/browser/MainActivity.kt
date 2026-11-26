@@ -5,7 +5,6 @@ import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,13 +14,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.fragment.app.FragmentActivity
 import app.magpie.browser.address.link
 import app.magpie.browser.browser.BrowserScreen
 import app.magpie.browser.favicon.LocalFavicons
 import app.magpie.browser.theme.MagpieTheme
 import app.magpie.browser.theme.dark
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val browser get() = (application as Magpie).browser
 
     override fun onCreate(savedInstanceState: Bundle?) {

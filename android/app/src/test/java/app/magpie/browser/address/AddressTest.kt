@@ -1,11 +1,11 @@
 package app.magpie.browser.address
 
-import app.magpie.browser.settings.SearchEngine
+import app.magpie.browser.settings.Search
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AddressTest {
-    private fun resolved(input: String) = resolve(input, SearchEngine.DuckDuckGo)
+    private fun resolved(input: String) = resolve(input, Search())
 
     @Test
     fun keepsAddressesThatHaveAScheme() {

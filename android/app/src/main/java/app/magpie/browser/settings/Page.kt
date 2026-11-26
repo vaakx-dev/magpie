@@ -9,7 +9,11 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.input.KeyboardType
 import app.magpie.browser.BuildConfig
 import app.magpie.browser.browser.Browser
 import app.magpie.browser.core.MagpieCore
@@ -18,6 +22,7 @@ import app.magpie.browser.sponsorblock.ENABLED
 import app.magpie.browser.sponsorblock.SHOW_SKIP_NOTICE
 import app.magpie.browser.sponsorblock.View
 import app.magpie.browser.theme.Choices
+import app.magpie.browser.theme.Field
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Section
 import app.magpie.browser.update.Channel
@@ -35,9 +40,31 @@ private fun Appearance(settings: Settings) {
 }
 
 @Composable
+private fun CustomSearch(settings: Settings) {
+    val template = rememberTextFieldState(settings.search.custom)
+    LaunchedEffect(template) {
+        snapshotFlow { template.text.trim().toString() }.collect { settings.search = settings.search.copy(custom = it) }
+    }
+    Section("Custom search engine")
+    Field(template, "Search address", KeyboardType.Uri)
+    Note(
+        if (settings.search.customValid) {
+            "%s is replaced with your search terms"
+        } else {
+            "Enter an http or https address with %s where the search terms go. Until then Magpie searches DuckDuckGo."
+        },
+    )
+}
+
+@Composable
 private fun Search(settings: Settings) {
     Section("Default search engine")
-    Card(SearchEngine.entries.map { engine -> { PickItem(engine.label, settings.searchEngine == engine) { settings.searchEngine = engine } } })
+    Card(
+        SearchEngine.entries.map { engine ->
+            { PickItem(engine.label, settings.search.engine == engine) { settings.search = settings.search.copy(engine = engine) } }
+        },
+    )
+    if (settings.search.engine == SearchEngine.Custom) CustomSearch(settings)
 }
 
 private const val NEEDS_CORE = "Needs Magpie's core library, which isn't in this build."

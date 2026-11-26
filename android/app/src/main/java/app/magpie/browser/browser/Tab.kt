@@ -65,6 +65,7 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     private var asleep = false
 
     private val remembered = space.profile != Profile.Private
+    private val zooms = if (remembered) browser.zooms else browser.privateZooms
     val prompts = Prompts()
     val permissions = Requests(browser.permissions.takeIf { remembered })
 
@@ -129,7 +130,8 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
 
     fun zoom(step: Step) {
         zoom = zoom.step(step)
-        send(JSONObject().put("kind", "zoom").put("zoom", zoom.factor))
+        zooms.set(url, zoom)
+        sendZoom()
     }
 
     fun clearHeld() {
@@ -144,6 +146,15 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
 
     private fun send(message: JSONObject) {
         port?.postMessage(message)
+    }
+
+    private fun sendZoom() = send(JSONObject().put("kind", "zoom").put("zoom", zoom.factor))
+
+    private fun followSiteZoom() {
+        val saved = zooms.of(url)
+        if (saved == zoom) return
+        zoom = saved
+        sendZoom()
     }
 
     private fun leave(uri: String) {
@@ -163,6 +174,7 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         hasUserGesture: Boolean,
     ) {
         this.url = url.orEmpty()
+        followSiteZoom()
         browser.redirect(this.url)?.let(::replace)
     }
 

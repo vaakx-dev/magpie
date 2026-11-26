@@ -28,6 +28,11 @@ class Spaces(private val preferences: SharedPreferences) {
         return space
     }
 
+    fun restore(space: Space) {
+        saved += space
+        save()
+    }
+
     fun rename(space: Space, name: String): Space {
         val renamed = space.copy(name = name)
         saved[saved.indexOf(space)] = renamed
@@ -44,17 +49,16 @@ class Spaces(private val preferences: SharedPreferences) {
 
     private fun load(): List<Space> {
         val stored = preferences.getString(SPACES, null) ?: return DEFAULT_SPACES
-        val array = JSONArray(stored)
-        return (0 until array.length()).map { array.getJSONObject(it).toSpace() }
+        return spaces(JSONArray(stored))
     }
 
     private fun save() {
-        val array = JSONArray(saved.map { it.toJson() })
+        val array = JSONArray(saved.map { it.json() })
         preferences.edit { putString(SPACES, array.toString()) }
     }
 }
 
-private fun Space.toJson(): JSONObject {
+fun Space.json(): JSONObject {
     val named = when (profile) {
         is Profile.Named -> profile
         Profile.Private -> error("Private spaces are never saved")
@@ -66,5 +70,7 @@ private fun Space.toJson(): JSONObject {
         .put("profileLabel", named.label)
 }
 
-private fun JSONObject.toSpace(): Space =
+private fun JSONObject.space(): Space =
     Space(getString("id"), getString("name"), Profile.Named(getString("profileId"), getString("profileLabel")))
+
+fun spaces(array: JSONArray): List<Space> = (0 until array.length()).map { array.getJSONObject(it).space() }

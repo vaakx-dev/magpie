@@ -86,6 +86,7 @@ fun General(browser: Browser) {
             }
         },
     )
+    Backups(browser)
     if (creating) {
         SpaceDialog(
             spaces.profiles,

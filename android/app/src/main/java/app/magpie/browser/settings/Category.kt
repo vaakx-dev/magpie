@@ -15,10 +15,10 @@ enum class Category(val label: String, val icon: ImageVector, private val terms:
     General(
         "General",
         Icons.Outlined.Layers,
-        listOf("Swipe address bar to switch tabs", "Spaces", "Profiles", "New space", "Rename space", "Clear profile data", "Delete space"),
+        listOf("Swipe address bar to switch tabs", "Spaces", "Profiles", "New space", "Rename space", "Clear profile data", "Delete space", "Backup", "Export Magpie backup", "Import Magpie backup"),
     ),
     Appearance("Appearance", Icons.Outlined.Palette, listOf("Theme", "Menu side") + MenuSide.entries.map(MenuSide::placement)),
-    Search("Search", Icons.Outlined.Search, listOf("Default search engine") + SearchEngine.entries.map(SearchEngine::label)),
+    Search("Search", Icons.Outlined.Search, listOf("Default search engine", "Custom search engine") + SearchEngine.entries.map(SearchEngine::label)),
     Privacy(
         "Privacy & Security",
         Icons.Outlined.Shield,
