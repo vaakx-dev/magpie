@@ -4,13 +4,13 @@ use url::Url;
 use super::{
     fill,
     keyring::Phase,
-    look::{FLOAT_CORNER_PX, MASKED_PASSWORD, login_name},
+    look::{MASKED_PASSWORD, login_name},
     unlock::AfterUnlock,
 };
 use crate::{
     internal::settings::Section,
     locale::Text,
-    ui::{browser::Browser, icon::Icon, window},
+    ui::{browser::Browser, icon::Icon, surface::PANEL_CORNER_PX, window},
     webview::{
         WebView,
         autofill::{Field, Role},
@@ -197,7 +197,7 @@ impl Browser {
         let top = field.bounds.bottom() + px(GAP_PX);
         Some(
             self.cutouts
-                .see_through(FLOAT_CORNER_PX)
+                .see_through(PANEL_CORNER_PX)
                 .absolute()
                 .left(field.bounds.left())
                 .top(top)

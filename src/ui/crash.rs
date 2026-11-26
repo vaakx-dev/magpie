@@ -26,7 +26,7 @@ impl Browser {
                 .items_center()
                 .justify_center()
                 .gap_4()
-                .bg(rgba(colors.page))
+                .bg(rgba(colors.surface))
                 .text_color(rgba(colors.text))
                 .child(
                     div()

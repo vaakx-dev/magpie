@@ -11,21 +11,15 @@ const TRACKING_DESCRIPTIONS = {
 }
 
 const CLEARING_VIEWS = {
-  idle: { title: "ClearBrowsingData", description: "ClearBrowsingDataHint", tone: "", buttons: ["clear-start"] },
-  confirming: {
-    title: "ClearBrowsingDataConfirm",
-    description: "ClearBrowsingDataWarning",
-    tone: "",
-    buttons: ["clear-cancel", "clear-confirm"],
-  },
-  running: { title: "Clearing", description: "ClearBrowsingDataHint", tone: "", buttons: [] },
-  cleared: { title: "ClearBrowsingData", description: "Cleared", tone: "success", buttons: ["clear-start"] },
-  failed: { title: "ClearBrowsingData", description: "ClearFailed", tone: "error", buttons: ["clear-start"] },
+  idle: { title: "ClearBrowsingData", description: "ClearBrowsingDataHint", tone: "" },
+  running: { title: "Clearing", description: "ClearBrowsingDataHint", tone: "" },
+  cleared: { title: "ClearBrowsingData", description: "Cleared", tone: "success" },
+  failed: { title: "ClearBrowsingData", description: "ClearFailed", tone: "error" },
 }
 
 const DARK_SITE_MODES = { off: "NeverDark", forced: "AlwaysDark" }
 
-const CLEARING_BUTTONS = ["clear-start", "clear-cancel", "clear-confirm"]
+const LOCALIZED = "[data-text], [data-placeholder], [data-label]"
 
 const UPDATE_TONES = {
   up_to_date: "success",
@@ -78,7 +72,7 @@ const SHORTCUTS = [
 let state = null
 let clearing = { phase: "idle" }
 let importing = { phase: "idle" }
-let deletingProfile = null
+let confirmed = null
 const typingTimers = new Map()
 
 function byId(id) {
@@ -104,10 +98,16 @@ function node(tag, { dataset = {}, ...properties } = {}, children = []) {
   return created
 }
 
+function translated(variant, fill = "") {
+  return state?.text[variant]?.replace("{}", fill)
+}
+
 function localize(element) {
-  const translated = state?.text[element.dataset.text]
-  if (translated === undefined) return
-  element.textContent = translated.replace("{}", element.dataset.fill ?? "")
+  const { text, placeholder, label, fill } = element.dataset
+  const name = label ?? placeholder
+  if (text) element.textContent = translated(text, fill) ?? element.textContent
+  if (placeholder) element.placeholder = translated(placeholder) ?? element.placeholder
+  if (name) element.ariaLabel = translated(name) ?? element.ariaLabel
 }
 
 function say(element, variant, fill = "") {
@@ -268,11 +268,9 @@ function sitePermissionRows(permissions) {
 }
 
 function categoryRows(categories) {
-  return categories.map(({ key, label, description, color }) => {
-    const dot = node("span", { className: "dot" })
-    dot.style.background = color
+  return categories.map(({ key, label, description }) => {
     const text = node("span", { className: "label" }, [
-      node("span", { className: "title" }, [dot, label]),
+      node("span", { className: "title", textContent: label }),
       node("span", { className: "description", textContent: description }),
     ])
     const toggle = node("input", { type: "checkbox", className: "switch", role: "switch", dataset: { sponsorblock: key } })
@@ -288,7 +286,7 @@ function channelRows(channels) {
 }
 
 function renderSponsorBlock(sponsorblock) {
-  const categories = sponsorblock.categories.map(({ key, label, description, color }) => ({ key, label, description, color }))
+  const categories = sponsorblock.categories.map(({ key, label, description }) => ({ key, label, description }))
   renderList(byId("categories"), categories, categoryRows)
   renderList(byId("channels"), sponsorblock.channels, channelRows)
   byId("channels-group").hidden = sponsorblock.channels.length === 0
@@ -309,7 +307,7 @@ function renderClearing() {
   say(description, view.description, clearing.error)
   description.classList.toggle("success", view.tone === "success")
   description.classList.toggle("error", view.tone === "error")
-  for (const id of CLEARING_BUTTONS) byId(id).hidden = !view.buttons.includes(id)
+  byId("clear-start").hidden = clearing.phase === "running"
 }
 
 function setClearing(next) {
@@ -405,17 +403,31 @@ function profileNameField({ id, name }) {
   return field
 }
 
-function deleteProfileButton({ id }) {
-  const confirming = deletingProfile === id
-  const remove = confirming
-    ? button({ variant: "DeleteProfileNow", onclick: () => post({ type: "delete_profile", profile: id }) })
-    : button({ variant: "DeleteProfile", onclick: () => confirmProfileDeletion(id) })
+function ask({ question, fill = "", detail, action, run }) {
+  say(byId("confirm-title"), question, fill)
+  say(byId("confirm-description"), detail)
+  say(byId("confirm-run"), action)
+  confirmed = run
+  byId("confirm").showModal()
+}
+
+function confirmProfileDeletion({ id, name }) {
+  ask({
+    question: "DeleteProfileConfirm",
+    fill: name,
+    detail: "DeleteProfileWarning",
+    action: "DeleteProfileNow",
+    run: () => post({ type: "delete_profile", profile: id }),
+  })
+}
+
+function deleteProfileButton(profile) {
+  const remove = button({ variant: "DeleteProfile", onclick: () => confirmProfileDeletion(profile) })
   remove.classList.add("danger")
-  remove.classList.toggle("solid", confirming)
   return remove
 }
 
-function profileRows({ profiles }) {
+function profileRows(profiles) {
   return profiles.map(profile => {
     if (profile.built_in) {
       return row({ title: plain(profile.name, "title"), description: phrase("DefaultProfileHint", "description") })
@@ -425,12 +437,7 @@ function profileRows({ profiles }) {
 }
 
 function renderProfiles() {
-  renderList(byId("browsing-profiles"), { profiles: state.profiles, deleting: deletingProfile }, profileRows)
-}
-
-function confirmProfileDeletion(id) {
-  deletingProfile = id
-  renderProfiles()
+  renderList(byId("browsing-profiles"), state.profiles, profileRows)
 }
 
 function profileChoice({ id, name, profile }) {
@@ -543,14 +550,6 @@ function renderMethods({ methods, email_sent }) {
   say(emailCode, email_sent ? "EmailCodeSent" : "SendEmailCode")
 }
 
-function placeholders() {
-  byId("vault-email").placeholder = state.text.Email
-  byId("vault-password").placeholder = state.text.MasterPassword
-  byId("vault-unlock-password").placeholder = state.text.MasterPassword
-  byId("vault-code").placeholder = state.text.VerificationCode
-  byId("vault-search").placeholder = state.text.SearchVault
-}
-
 function renderPasswords(passwords) {
   const { status } = passwords
   say(byId("vault-status"), VAULT_TITLES[status])
@@ -568,7 +567,6 @@ function renderPasswords(passwords) {
   byId("vault-sync").hidden = status !== "unlocked"
   byId("vault-lock").hidden = status !== "unlocked"
   byId("vault-sign-out").hidden = !SIGNED_IN.includes(status)
-  placeholders()
   if (status === "challenged") renderMethods(passwords.challenge)
   if (status !== "unlocked") return
   say(byId("vault-count"), "SavedLogins", String(passwords.logins))
@@ -598,6 +596,10 @@ function vaultRows(logins) {
       controls: [node("div", { className: "actions" }, copies)],
     })
   })
+}
+
+function confirmSignOut() {
+  ask({ question: "SignOutConfirm", detail: "SignOutWarning", action: "SignOut", run: () => vault({ kind: "sign_out" }) })
 }
 
 function signIn(event) {
@@ -646,6 +648,7 @@ function shortcutRows() {
 function applyState(next) {
   state = next
   document.documentElement.dataset.scheme = state.scheme
+  for (const element of document.querySelectorAll(LOCALIZED)) localize(element)
   for (const control of document.querySelectorAll("[data-setting]")) renderControl(control)
   renderDescriptions()
   renderDownloads()
@@ -660,9 +663,6 @@ function applyState(next) {
   renderPasswords(state.passwords)
   renderProfiles()
   renderSpaceProfiles()
-  byId("profile-name").placeholder = state.text.NewProfileName
-  byId("profile-name").ariaLabel = state.text.NewProfileName
-  for (const element of document.querySelectorAll("[data-text]")) localize(element)
   refreshMatches()
 }
 
@@ -785,19 +785,22 @@ function clearFindOnEscape(event) {
   showView()
 }
 
-function startClearing() {
-  setClearing({ phase: "confirming" })
-  byId("clear-cancel").focus()
-}
-
-function cancelClearing() {
-  setClearing({ phase: "idle" })
-  byId("clear-start").focus()
+function clearBrowsingData() {
+  post({ type: "clear_browsing_data" })
+  setClearing({ phase: "running" })
 }
 
 function confirmClearing() {
-  post({ type: "clear_browsing_data" })
-  setClearing({ phase: "running" })
+  ask({ question: "ClearBrowsingDataConfirm", detail: "ClearBrowsingDataWarning", action: "ClearNow", run: clearBrowsingData })
+}
+
+function confirmBackupImport() {
+  ask({
+    question: "ImportBackupConfirm",
+    detail: "ImportBackupWarning",
+    action: "Continue",
+    run: () => post({ type: "import_backup" }),
+  })
 }
 
 function listen() {
@@ -810,11 +813,10 @@ function listen() {
   byId("import").addEventListener("change", changeImport)
   byId("import-run").addEventListener("click", runImport)
   byId("backup-export").addEventListener("click", () => post({ type: "export_backup" }))
-  byId("backup-import").addEventListener("click", () => post({ type: "import_backup" }))
+  byId("backup-import").addEventListener("click", confirmBackupImport)
   byId("profile-add").addEventListener("submit", addProfile)
-  byId("clear-start").addEventListener("click", startClearing)
-  byId("clear-cancel").addEventListener("click", cancelClearing)
-  byId("clear-confirm").addEventListener("click", confirmClearing)
+  byId("clear-start").addEventListener("click", confirmClearing)
+  byId("confirm-run").addEventListener("click", () => confirmed())
   byId("download-change").addEventListener("click", () => post({ type: "choose_download_folder" }))
   byId("download-reset").addEventListener("click", () => setSetting("download_folder", ""))
   byId("open-data-folder").addEventListener("click", () => post({ type: "open_data_folder" }))
@@ -829,7 +831,7 @@ function listen() {
   byId("vault-unlock").addEventListener("submit", unlockVault)
   byId("vault-sync").addEventListener("click", () => vault({ kind: "sync" }))
   byId("vault-lock").addEventListener("click", () => vault({ kind: "lock" }))
-  byId("vault-sign-out").addEventListener("click", () => vault({ kind: "sign_out" }))
+  byId("vault-sign-out").addEventListener("click", confirmSignOut)
   byId("vault-search").addEventListener("input", searchVault)
   chrome.webview.addEventListener("message", received)
 }

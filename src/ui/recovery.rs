@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use gpui::{Context, Task, prelude::*};
+use gpui::{Context, Div, Task};
 
 use super::browser::Browser;
 use crate::locale::Text;
@@ -27,7 +27,7 @@ impl Browser {
         cx.notify();
     }
 
-    fn dismiss_recovery(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn dismiss_recovery(&mut self, cx: &mut Context<Self>) {
         self.recovery = None;
         cx.notify();
     }
@@ -37,7 +37,7 @@ impl Browser {
         self.archive_today(cx);
     }
 
-    pub(super) fn recovery_banner(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+    pub(super) fn recovery_banner(&self, cx: &mut Context<Self>) -> Option<Div> {
         self.recovery.as_ref()?;
         let buttons = [
             self.banner_button("start-fresh", Text::StartFresh, Self::start_fresh, cx),

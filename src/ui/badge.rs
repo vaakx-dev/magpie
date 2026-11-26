@@ -1,6 +1,10 @@
 use gpui::{AnyElement, Div, FontWeight, div, prelude::*, px, rgba};
 
-use super::{browser::Browser, icon::Icon, surface::Colors};
+use super::{
+    browser::Browser,
+    icon::Icon,
+    surface::{CONTROL_CORNER_PX, Colors},
+};
 use crate::{internal::BRAND, locale::Text};
 
 const BADGE_HEIGHT_PX: f32 = 22.0;
@@ -14,10 +18,8 @@ pub(super) fn pill(colors: &Colors) -> Div {
         .flex_none()
         .items_center()
         .gap_1()
-        .rounded_full()
+        .rounded(px(CONTROL_CORNER_PX))
         .bg(rgba(colors.raised))
-        .border_1()
-        .border_color(rgba(colors.line))
         .text_xs()
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(rgba(colors.text))

@@ -42,6 +42,8 @@ fn filled_translations_keep_the_value_in_every_language() {
             Text::SearchFor,
             Text::OpenAddress,
             Text::ClearFailed,
+            Text::DeleteProfileConfirm,
+            Text::ClearSiteDataPrompt,
             Text::WantsCamera,
             Text::WantsMicrophone,
             Text::WantsNotifications,

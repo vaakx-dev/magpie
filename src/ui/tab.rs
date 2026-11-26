@@ -1,6 +1,9 @@
 use gpui::{App, Context, Div, ElementId, MouseButton, Stateful, Svg, div, prelude::*, px, rgba};
 
-use super::{browser::Browser, surface::Colors};
+use super::{
+    browser::Browser,
+    surface::{CONTROL_CORNER_PX, Colors},
+};
 use crate::{storage::session::TabId, webview::sleep::IDLE_BEFORE_SLEEP};
 
 const ASLEEP_OPACITY: f32 = 0.55;
@@ -15,7 +18,7 @@ pub fn row_button(id: impl Into<ElementId>, icon: Svg, colors: &Colors) -> State
         .flex_none()
         .items_center()
         .justify_center()
-        .rounded_md()
+        .rounded(px(CONTROL_CORNER_PX))
         .hover(move |button| button.bg(rgba(overlay)))
         .child(icon)
 }

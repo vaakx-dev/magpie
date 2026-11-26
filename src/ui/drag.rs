@@ -5,7 +5,7 @@ use gpui::{
 
 use super::{
     browser::Browser,
-    surface::{Colors, surface, tint},
+    surface::{CONTROL_CORNER_PX, Colors, surface, tint},
 };
 use crate::{
     config::FavoritesSize,
@@ -65,7 +65,7 @@ impl<T: 'static> Render for Dragged<T> {
             .max_w(px(PREVIEW_MAX_WIDTH_PX))
             .px_3()
             .py_1()
-            .rounded_lg()
+            .rounded(px(CONTROL_CORNER_PX))
             .font_family("Segoe UI")
             .text_sm()
             .truncate()

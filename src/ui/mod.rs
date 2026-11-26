@@ -22,6 +22,7 @@ mod marquee;
 mod menu;
 pub mod mini_player;
 mod onboarding;
+mod overlay;
 mod password;
 mod peek;
 mod permission;
@@ -91,7 +92,7 @@ actions!(
         ReopenClosedTab,
         SplitView,
         OpenSettings,
-        ClosePopover,
+        Dismiss,
         Find,
         ZoomIn,
         ZoomOut,
@@ -165,7 +166,7 @@ fn page_bindings() -> Vec<KeyBinding> {
 fn bindings() -> Vec<KeyBinding> {
     page_bindings()
         .into_iter()
-        .chain([KeyBinding::new("escape", ClosePopover, Some("Browser"))])
+        .chain([KeyBinding::new("escape", Dismiss, Some("Browser"))])
         .chain(field::bindings())
         .chain(command::bindings())
         .chain(find::bindings())

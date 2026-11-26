@@ -4,7 +4,9 @@ use crate::config::Scheme;
 
 const PANEL_WIDTH_PX: f32 = 264.0;
 pub const PANEL_PADDING_PX: f32 = 4.0;
-pub const PANEL_CORNER_PX: f32 = 10.0;
+pub const PANEL_CORNER_PX: f32 = 12.0;
+pub const CONTROL_CORNER_PX: f32 = 8.0;
+pub const PAGE_CORNER_PX: f32 = 8.0;
 pub const ROW_HEIGHT_PX: f32 = 28.0;
 const BUTTON_HEIGHT_PX: f32 = 28.0;
 
@@ -19,59 +21,50 @@ pub struct Colors {
     pub overlay_pressed: u32,
     pub line: u32,
     pub surface: u32,
+    pub surface_hover: u32,
     pub raised: u32,
-    pub field: u32,
-    pub field_hover: u32,
-    pub tile: u32,
-    pub tile_hover: u32,
+    pub raised_hover: u32,
     pub scrim: u32,
-    pub page: u32,
     pub switch_off: u32,
     pub on_text: u32,
 }
 
 const LIGHT: Colors = Colors {
-    frame: 0xebebebff,
-    text: 0x1f1f1fff,
-    muted: 0x5c5c5cff,
-    faint: 0xa3a3a3ff,
-    row_active: 0xffffffb3,
-    row_hover: 0xffffff66,
-    overlay: 0x1f1f1f12,
-    overlay_pressed: 0x1f1f1f1f,
-    line: 0x1f1f1f1a,
+    frame: 0xf3f3f3ff,
+    text: 0x141414ff,
+    muted: 0x666666ff,
+    faint: 0x14141459,
+    row_active: 0xffffffff,
+    row_hover: 0xffffff80,
+    overlay: 0x14141414,
+    overlay_pressed: 0x1414140d,
+    line: 0x1414141a,
     surface: 0xffffffff,
-    raised: 0x1f1f1f0d,
-    field: 0xffffff99,
-    field_hover: 0xffffffd9,
-    tile: 0xffffff73,
-    tile_hover: 0xffffffcc,
-    scrim: 0x1f1f1f2e,
-    page: 0xffffffff,
-    switch_off: 0x8f8f8f80,
+    surface_hover: 0xffffff99,
+    raised: 0xeaeaeaff,
+    raised_hover: 0x1414141f,
+    scrim: 0xf3f3f399,
+    switch_off: 0x66666680,
     on_text: 0xffffffff,
 };
 
 const DARK: Colors = Colors {
-    frame: 0x1c1c1cff,
-    text: 0xecececff,
-    muted: 0xa3a3a3ff,
-    faint: 0x636363ff,
-    row_active: 0xffffff1f,
-    row_hover: 0xffffff0f,
-    overlay: 0xffffff17,
-    overlay_pressed: 0xffffff0d,
-    line: 0xffffff17,
-    surface: 0x262626ff,
-    raised: 0xffffff0f,
-    field: 0xffffff0f,
-    field_hover: 0xffffff1a,
-    tile: 0xffffff0d,
-    tile_hover: 0xffffff1f,
-    scrim: 0x0000006b,
-    page: 0x212121ff,
-    switch_off: 0xffffff33,
-    on_text: 0x1c1c1cff,
+    frame: 0x141414ff,
+    text: 0xf2f2f2ff,
+    muted: 0x969696ff,
+    faint: 0xf2f2f259,
+    row_active: 0x2a2a2aff,
+    row_hover: 0x2a2a2a80,
+    overlay: 0xf2f2f214,
+    overlay_pressed: 0xf2f2f20d,
+    line: 0xf2f2f21a,
+    surface: 0x1f1f1fff,
+    surface_hover: 0x2a2a2aff,
+    raised: 0x2a2a2aff,
+    raised_hover: 0xf2f2f21f,
+    scrim: 0x14141499,
+    switch_off: 0x96969680,
+    on_text: 0x141414ff,
 };
 
 pub fn colors(scheme: Scheme) -> &'static Colors {
@@ -97,17 +90,15 @@ pub fn text_button(
     label: &'static str,
     colors: &Colors,
 ) -> Stateful<Div> {
-    let hover = colors.overlay;
+    let hover = colors.raised_hover;
     div()
         .id(id)
         .h(px(BUTTON_HEIGHT_PX))
         .px_3()
         .flex()
         .items_center()
-        .rounded_md()
+        .rounded(px(CONTROL_CORNER_PX))
         .bg(rgba(colors.raised))
-        .border_1()
-        .border_color(rgba(colors.line))
         .cursor_pointer()
         .hover(move |button| button.bg(rgba(hover)))
         .child(label)

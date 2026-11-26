@@ -7,7 +7,11 @@ use gpui::{
 pub use player::{Candidate, Player};
 
 use super::{
-    browser::Browser, favicon::site_icon, icon::Icon, surface::tint, tab::row_button,
+    browser::Browser,
+    favicon::site_icon,
+    icon::Icon,
+    surface::{CONTROL_CORNER_PX, PANEL_CORNER_PX, tint},
+    tab::row_button,
     toolbar::icon_button,
 };
 use crate::{
@@ -153,7 +157,7 @@ impl Browser {
             .flex_none()
             .items_center()
             .justify_center()
-            .rounded_full()
+            .rounded(px(CONTROL_CORNER_PX))
             .bg(rgba(ink))
             .hover(move |button| button.bg(tint(ink, 0xd9)))
             .on_click(
@@ -239,10 +243,8 @@ impl Browser {
             .flex_col()
             .gap_1p5()
             .p_2()
-            .rounded_lg()
+            .rounded(px(PANEL_CORNER_PX))
             .bg(rgba(colors.row_active))
-            .border_1()
-            .border_color(rgba(colors.line))
             .shadow_sm()
             .child(heading)
             .child(self.transport(&playing, cx));

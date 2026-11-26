@@ -12,7 +12,7 @@ use super::{
     frame::INSET_PX,
     marquee::{Marquee, marquee},
     sidebar::tab_title,
-    surface::{PANEL_CORNER_PX, surface},
+    surface::{CONTROL_CORNER_PX, PANEL_CORNER_PX, surface},
 };
 use crate::{
     config::Side,
@@ -29,7 +29,6 @@ const PADDING_Y_PX: f32 = 6.0;
 const WIDTH_PX: f32 = SNAPSHOT_WIDTH_PX + 2.0 * PADDING_PX;
 const SIDEBAR_GAP_PX: f32 = INSET_PX + 6.0;
 const WINDOW_MARGIN_PX: f32 = 8.0;
-const THUMBNAIL_CORNER_PX: f32 = 6.0;
 const TITLE_LINE_PX: f32 = 18.0;
 const DETAIL_LINE_PX: f32 = 16.0;
 
@@ -239,13 +238,13 @@ impl Browser {
         let frame = div()
             .w(px(SNAPSHOT_WIDTH_PX))
             .h(px(SNAPSHOT_HEIGHT_PX))
-            .rounded(px(THUMBNAIL_CORNER_PX));
+            .rounded(px(CONTROL_CORNER_PX));
         match self.thumbnails.image(tab.url()) {
             Some(image) => frame
                 .child(
                     img(image)
                         .size_full()
-                        .rounded(px(THUMBNAIL_CORNER_PX))
+                        .rounded(px(CONTROL_CORNER_PX))
                         .object_fit(ObjectFit::Cover),
                 )
                 .into_any_element(),

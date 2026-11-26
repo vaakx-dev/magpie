@@ -1,6 +1,6 @@
 use gpui::{ClickEvent, Context, Div, Stateful, Window, div, prelude::*, px, rgba};
 
-use super::{ResetZoom, ZoomIn, ZoomOut, browser::Browser};
+use super::{ResetZoom, ZoomIn, ZoomOut, browser::Browser, surface::CONTROL_CORNER_PX};
 use crate::zoom::Step;
 
 const BADGE_HEIGHT_PX: f32 = 20.0;
@@ -45,7 +45,7 @@ impl Browser {
                 .h(px(BADGE_HEIGHT_PX))
                 .flex()
                 .items_center()
-                .rounded_full()
+                .rounded(px(CONTROL_CORNER_PX))
                 .text_xs()
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(rgba(colors.text))

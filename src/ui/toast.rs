@@ -32,7 +32,6 @@ enum Action {
 }
 
 const WIDTH_PX: f32 = 360.0;
-const EDGE_PX: f32 = 12.0;
 const LINGER: Duration = Duration::from_secs(6);
 
 impl Action {
@@ -93,7 +92,7 @@ impl Browser {
         });
     }
 
-    fn dismiss_toast(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn dismiss_toast(&mut self, cx: &mut Context<Self>) {
         if self.toast.take().is_some() {
             cx.notify();
         }
@@ -176,13 +175,6 @@ impl Browser {
                     .child(download.status()),
             )
             .child(div().flex().justify_end().gap_2().children(buttons));
-        Some(
-            self.cutouts
-                .see_through(PANEL_CORNER_PX)
-                .absolute()
-                .bottom(px(EDGE_PX))
-                .right(px(EDGE_PX))
-                .child(card),
-        )
+        Some(self.cutouts.see_through(PANEL_CORNER_PX).child(card))
     }
 }

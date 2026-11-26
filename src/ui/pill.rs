@@ -6,7 +6,7 @@ use super::{
     browser::{Browser, Reveal},
     frame::{self, Flow},
     icon::Icon,
-    surface::surface,
+    surface::{PANEL_CORNER_PX, surface},
     toolbar::icon_button,
 };
 
@@ -50,7 +50,7 @@ impl Browser {
         let controls = frame::controls(placement, Flow::Row, colors, window);
         surface(colors)
             .p_1()
-            .rounded_xl()
+            .rounded(px(PANEL_CORNER_PX))
             .child(frame::bar(placement.side, controls, content))
     }
 
