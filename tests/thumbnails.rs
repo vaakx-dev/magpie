@@ -42,6 +42,20 @@ fn sweeping_keeps_open_and_recent_previews_and_drops_old_orphans() {
 }
 
 #[test]
+fn clearing_browsing_data_removes_every_preview_from_disk() {
+    let home = tempfile::tempdir().unwrap();
+    let store = Store::open(home.path()).unwrap();
+    let cache = store.thumbnails();
+    cache.write(OPEN, b"bank statement").unwrap();
+
+    store.clear_browsing_data().unwrap();
+
+    assert_eq!(cache.read(OPEN), None);
+    assert!(!home.path().join("thumbs").exists());
+    store.clear_browsing_data().unwrap();
+}
+
+#[test]
 fn private_windows_leave_no_previews_on_disk() {
     let home = tempfile::tempdir().unwrap();
     let cache = Store::open(home.path())

@@ -54,6 +54,13 @@ impl Cache {
         fs::write(self.path(page), jpeg)
     }
 
+    pub fn clear(&self) -> io::Result<()> {
+        match fs::remove_dir_all(&self.folder) {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            removed => removed,
+        }
+    }
+
     pub fn sweep<'a>(&self, open: impl IntoIterator<Item = &'a str>) -> io::Result<()> {
         if !self.role.keeps_session() || !self.folder.exists() {
             return Ok(());

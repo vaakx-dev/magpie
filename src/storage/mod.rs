@@ -11,12 +11,14 @@ pub mod recovery;
 pub mod search;
 pub mod session;
 pub mod thumbnail;
+pub mod writer;
 
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeSet;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
 
 use crate::role::Role;
@@ -27,6 +29,7 @@ use magpie_engine::file;
 use profile::Profiles;
 use search::{OpenTab, SearchResult, Sources};
 use session::{Session, TabId};
+use writer::Writer;
 
 const APP_FOLDER: &str = "Magpie";
 const SESSION_FILE: &str = "session.json";
@@ -42,7 +45,8 @@ pub struct Store {
     folder: PathBuf,
     role: Role,
     pub session: Session,
-    history: Rc<RefCell<History>>,
+    history: Arc<RwLock<History>>,
+    history_file: Rc<Writer>,
     profiles: Rc<RefCell<Profiles>>,
     pub archive: Archive,
 }
@@ -62,11 +66,14 @@ impl Store {
             &folder.join(SESSION_BACKUP_FILE),
         )?;
         session.keep_profiles(&profiles);
+        let history_path = folder.join(HISTORY_FILE);
+        let history = Arc::new(RwLock::new(file::load(&history_path)?));
         Ok(Self {
             folder: folder.to_owned(),
             role: Role::Primary,
             session,
-            history: Rc::new(RefCell::new(file::load(&folder.join(HISTORY_FILE))?)),
+            history_file: Rc::new(Writer::spawn(history_path, Arc::clone(&history))?),
+            history,
             profiles: Rc::new(RefCell::new(profiles)),
             archive: file::load(&folder.join(ARCHIVE_FILE))?,
         })
@@ -77,7 +84,8 @@ impl Store {
             folder: self.folder.clone(),
             role,
             session: Session::default(),
-            history: Rc::clone(&self.history),
+            history: Arc::clone(&self.history),
+            history_file: Rc::clone(&self.history_file),
             profiles: Rc::clone(&self.profiles),
             archive: Archive::default(),
         }
@@ -103,12 +111,12 @@ impl Store {
         &self.folder
     }
 
-    pub fn history(&self) -> Ref<'_, History> {
-        self.history.borrow()
+    pub fn history(&self) -> RwLockReadGuard<'_, History> {
+        self.history.read().expect("history lock poisoned")
     }
 
-    pub fn history_mut(&self) -> RefMut<'_, History> {
-        self.history.borrow_mut()
+    pub fn history_mut(&self) -> RwLockWriteGuard<'_, History> {
+        self.history.write().expect("history lock poisoned")
     }
 
     pub fn favicons(&self) -> favicon::Cache {
@@ -131,22 +139,27 @@ impl Store {
         file::save(&self.folder.join(PROFILES_FILE), &*self.profiles())
     }
 
-    pub fn record_visit(&self, url: &str, title: &str, now: Epoch) -> io::Result<()> {
+    pub fn record_visit(&self, url: &str, title: &str, now: Epoch) {
         if self.role.private() {
-            return Ok(());
+            return;
         }
         self.history_mut().record(url, title, now);
-        self.save_history()
+        self.history_file.save();
     }
 
-    pub fn forget_visit(&self, url: &str) -> io::Result<()> {
+    pub fn forget_visit(&self, url: &str) {
         self.history_mut().forget(url);
-        self.save_history()
+        self.history_file.save();
     }
 
-    pub fn clear_history(&self) -> io::Result<()> {
+    pub fn clear_history(&self) {
         self.history_mut().clear();
-        self.save_history()
+        self.history_file.save();
+    }
+
+    pub fn clear_browsing_data(&self) -> io::Result<()> {
+        self.clear_history();
+        self.thumbnails().clear()
     }
 
     pub fn save_session(&self) -> io::Result<()> {
@@ -157,7 +170,7 @@ impl Store {
     }
 
     pub fn save_history(&self) -> io::Result<()> {
-        file::save(&self.folder.join(HISTORY_FILE), &*self.history())
+        self.history_file.save_now()
     }
 
     pub fn save_archive(&self) -> io::Result<()> {

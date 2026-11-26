@@ -8,9 +8,9 @@ import org.junit.Test
 class SuggestionsTest {
     private val bookmarks = listOf(Favorite("https://news.example.org/", "Morning news"), Favorite("https://maps.example.com/", "Maps"))
     private val visits = listOf(
-        Visit("https://news.example.org/", "Morning news"),
-        Visit("https://example.org/magpies", "All about magpies"),
-        Visit("https://example.org/crows", ""),
+        Visit("https://news.example.org/", "Morning news", 0),
+        Visit("https://example.org/magpies", "All about magpies", 0),
+        Visit("https://example.org/crows", "", 0),
     )
 
     @Test

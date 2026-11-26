@@ -205,7 +205,7 @@ impl Browser {
             return;
         }
         let url = visit.url.to_string();
-        report(self.store.record_visit(&url, &visit.title, Epoch::now()));
+        self.store.record_visit(&url, &visit.title, Epoch::now());
         history_changed(cx);
     }
 
@@ -670,7 +670,7 @@ impl Browser {
     }
 
     pub(super) fn clear_history(&mut self, cx: &mut Context<Self>) {
-        report(self.store.clear_history());
+        self.store.clear_history();
         history_changed(cx);
     }
 
@@ -678,13 +678,14 @@ impl Browser {
         &mut self,
         cx: &mut Context<Self>,
     ) -> impl Future<Output = windows::core::Result<()>> + use<> {
-        self.clear_history(cx);
+        report(self.store.clear_browsing_data());
+        history_changed(cx);
         self.runtime
             .clear_browsing_data(&self.store.profiles().ids())
     }
 
     pub(super) fn forget_visit(&mut self, url: &str, cx: &mut Context<Self>) {
-        report(self.store.forget_visit(url));
+        self.store.forget_visit(url);
         history_changed(cx);
     }
 

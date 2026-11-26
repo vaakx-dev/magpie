@@ -9,10 +9,12 @@ use std::{
     },
 };
 
-use adblock::{Engine, FilterSet, lists::ParseOptions, request::Request};
+use adblock::{
+    Engine, FilterSet, engine::DeserializationError, lists::ParseOptions, request::Request,
+};
 use url::Url;
 
-pub use list::subscriptions;
+pub use list::filter_list;
 
 const BASELINE: &str = include_str!("baseline.txt");
 
@@ -137,9 +139,11 @@ impl Shield {
         self.paused.write().expect("shield lock poisoned")
     }
 
-    pub fn replace(&self, lists: impl IntoIterator<Item = String>) {
-        let fresh = engine(lists);
+    pub fn load(&self, snapshot: &[u8]) -> Result<(), DeserializationError> {
+        let mut fresh = Engine::default();
+        fresh.deserialize(snapshot)?;
         *self.engine.write().expect("shield lock poisoned") = fresh;
+        Ok(())
     }
 
     pub fn blocks(&self, url: &Url, page: &Url, resource: Resource) -> bool {

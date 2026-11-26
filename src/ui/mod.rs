@@ -69,7 +69,7 @@ use crate::{
 };
 use browser::Browser;
 pub use icon::Assets;
-use magpie_engine::blocker::{Shield, subscriptions};
+use magpie_engine::blocker::{Shield, snapshot};
 use password::Keyring;
 use update::Updater;
 
@@ -177,9 +177,13 @@ fn bindings() -> Vec<KeyBinding> {
 
 fn load_filter_lists(shield: Arc<Shield>, folder: PathBuf, cx: &mut App) {
     cx.background_spawn(async move {
-        let lists = subscriptions(&folder);
-        if !lists.is_empty() {
-            shield.replace(lists);
+        let snapshots = [snapshot::cached, snapshot::refreshed]
+            .into_iter()
+            .filter_map(|snapshot| snapshot(&folder));
+        for filters in snapshots {
+            if let Err(error) = shield.load(&filters) {
+                eprintln!("magpie: could not load the ad filters: {error}");
+            }
         }
     })
     .detach();
