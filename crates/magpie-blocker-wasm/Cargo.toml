@@ -1,6 +1,6 @@
 [package]
 name = "magpie-blocker-wasm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Magpie's ad blocker compiled to WebAssembly for the Android browser extension"
 license = "MIT"

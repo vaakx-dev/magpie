@@ -1,6 +1,6 @@
 [package]
 name = "magpie-engine"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Magpie's platform-independent engines: tracker stripping, ad blocking and the Bitwarden vault"
 license = "MIT"
