@@ -38,6 +38,7 @@ import org.mozilla.geckoview.WebExtension
 private const val PREFERENCES = "magpie"
 private const val TABS_FILE = "tabs.json"
 private const val ZOOMS_FILE = "zoom.json"
+private const val HISTORY_FILE = "history.json"
 
 private val Tab.saveable: Boolean get() = space.profile is Profile.Named && !blank
 
@@ -47,7 +48,7 @@ class Browser(private val context: Context) {
     val settings = Settings(preferences)
     val spaces = Spaces(preferences)
     val favorites = Favorites(preferences)
-    val history = History(preferences)
+    val history = History(JsonFile(context, HISTORY_FILE, scope), preferences)
     val downloads = Downloads(context, scope)
     val favicons = Favicons(context, scope)
     val vault = Vault(context)
@@ -186,6 +187,7 @@ class Browser(private val context: Context) {
     fun flush() {
         tabStore.flush(savedTabs())
         zooms.flush()
+        history.flush()
         downloads.flush()
         preferences.edit().commit()
     }

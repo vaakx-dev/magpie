@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use magpie::storage::Store;
 use magpie::storage::clock::Epoch;
+use magpie::storage::history::History;
 use magpie::storage::search::{OpenTab, Source};
 use magpie::storage::session::{Folder, FolderId, Link, Pane, Pinned, Space, SpaceId, Tab, TabId};
 use magpie_engine::file;
@@ -264,6 +265,26 @@ fn restoring_a_tab_whose_space_was_deleted_uses_the_active_space() {
             .iter()
             .any(|tab| tab.id == TabId(7))
     );
+}
+
+#[test]
+fn visits_are_saved_in_the_background_and_flushed_when_the_store_closes() {
+    let folder = tempfile::tempdir().unwrap();
+    let history_path = folder.path().join("history.json");
+    let store = Store::open(folder.path()).unwrap();
+
+    store.record_visit("https://news.example.com/", "News", START);
+    store.record_visit("https://mail.example.com/", "Mail", START);
+
+    assert!(!history_path.exists());
+    drop(store);
+    let reopened = Store::open(folder.path()).unwrap();
+    assert_eq!(reopened.history().visits().count(), 2);
+
+    reopened.forget_visit("https://news.example.com/");
+    reopened.save().unwrap();
+    let saved: History = file::load(&history_path).unwrap();
+    assert_eq!(saved, *reopened.history());
 }
 
 #[test]

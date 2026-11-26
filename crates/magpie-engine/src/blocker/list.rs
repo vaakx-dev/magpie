@@ -1,9 +1,13 @@
 use std::{
-    fs,
+    fs, io,
     path::Path,
     thread,
     time::{Duration, SystemTime},
 };
+
+use ureq::Agent;
+
+use crate::file;
 
 const SUBSCRIPTIONS: [(&str, &str); 4] = [
     ("easylist.txt", "https://easylist.to/easylist/easylist.txt"),
@@ -22,14 +26,24 @@ const SUBSCRIPTIONS: [(&str, &str); 4] = [
 ];
 const FRESH_FOR: Duration = Duration::from_secs(24 * 60 * 60);
 const MAX_LIST_BYTES: u64 = 16 * 1024 * 1024;
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
+const MARKUP_START: char = '<';
 
-pub fn subscriptions(folder: &Path) -> Vec<String> {
+pub fn filter_list(text: &str) -> bool {
+    let start = text.trim_start_matches('\u{feff}').trim_start();
+    !start.is_empty() && !start.starts_with(MARKUP_START)
+}
+
+pub(super) fn subscriptions(folder: &Path) -> Vec<String> {
+    let agent = agent();
     thread::scope(|scope| {
         let loading: Vec<_> = SUBSCRIPTIONS
             .iter()
             .map(|(file, address)| {
                 let path = folder.join(file);
-                scope.spawn(move || subscription(&path, address))
+                let agent = &agent;
+                scope.spawn(move || subscription(agent, &path, address))
             })
             .collect();
         loading
@@ -39,12 +53,22 @@ pub fn subscriptions(folder: &Path) -> Vec<String> {
     })
 }
 
-fn subscription(path: &Path, address: &str) -> Option<String> {
-    let cached = fs::read_to_string(path).ok();
+fn agent() -> Agent {
+    Agent::config_builder()
+        .timeout_connect(Some(CONNECT_TIMEOUT))
+        .timeout_global(Some(DOWNLOAD_TIMEOUT))
+        .build()
+        .new_agent()
+}
+
+fn subscription(agent: &Agent, path: &Path, address: &str) -> Option<String> {
+    let cached = fs::read_to_string(path)
+        .ok()
+        .filter(|list| filter_list(list));
     if cached.is_some() && fresh(path) {
         return cached;
     }
-    download(address)
+    download(agent, address)
         .inspect(|list| save(path, list))
         .or(cached)
 }
@@ -57,8 +81,9 @@ pub(super) fn fresh(path: &Path) -> bool {
         .is_some_and(|age| age < FRESH_FOR)
 }
 
-fn download(address: &str) -> Option<String> {
-    ureq::get(address)
+fn download(agent: &Agent, address: &str) -> Option<String> {
+    agent
+        .get(address)
         .call()
         .ok()?
         .body_mut()
@@ -66,15 +91,18 @@ fn download(address: &str) -> Option<String> {
         .limit(MAX_LIST_BYTES)
         .read_to_string()
         .ok()
+        .filter(|list| filter_list(list))
+}
+
+fn write(path: &Path, contents: &[u8]) -> io::Result<()> {
+    if let Some(folder) = path.parent() {
+        fs::create_dir_all(folder)?;
+    }
+    file::replace(path, contents)
 }
 
 pub(super) fn save(path: &Path, contents: impl AsRef<[u8]>) {
-    let written = path
-        .parent()
-        .map(fs::create_dir_all)
-        .transpose()
-        .and_then(|_| fs::write(path, contents));
-    if let Err(error) = written {
+    if let Err(error) = write(path, contents.as_ref()) {
         eprintln!(
             "magpie: could not cache filters {}: {error}",
             path.display()

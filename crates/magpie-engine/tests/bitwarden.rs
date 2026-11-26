@@ -386,6 +386,37 @@ fn uri_match_rules_follow_bitwarden() {
 }
 
 #[test]
+fn secure_logins_are_never_offered_on_insecure_pages() {
+    for rule in [MatchRule::Domain, MatchRule::Host] {
+        assert!(!uri_matches(
+            "https://bank.example.com/login",
+            rule,
+            "http://bank.example.com/login"
+        ));
+        assert!(uri_matches(
+            "https://bank.example.com/login",
+            rule,
+            "https://bank.example.com/login"
+        ));
+        assert!(uri_matches(
+            "http://bank.example.com/login",
+            rule,
+            "http://bank.example.com/login"
+        ));
+        assert!(uri_matches(
+            "http://bank.example.com/login",
+            rule,
+            "https://bank.example.com/login"
+        ));
+        assert!(uri_matches(
+            "bank.example.com",
+            rule,
+            "http://bank.example.com/login"
+        ));
+    }
+}
+
+#[test]
 fn vault_matches_logins_by_url_and_searches_them() {
     let (_folder, vault) = unlocked_vault(vec![
         sealed_login("mail", "Mail", &[("mail.example.com", None)]),

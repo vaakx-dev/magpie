@@ -60,12 +60,8 @@ fn private_windows_record_no_history_while_other_windows_share_it() {
     let secondary = primary.new_window();
     let private = primary.new_private_window();
 
-    secondary
-        .record_visit("https://news.example.com/", "News", NOW)
-        .unwrap();
-    private
-        .record_visit("https://secret.example.com/", "Secret", NOW)
-        .unwrap();
+    secondary.record_visit("https://news.example.com/", "News", NOW);
+    private.record_visit("https://secret.example.com/", "Secret", NOW);
 
     assert!(
         primary
@@ -73,6 +69,7 @@ fn private_windows_record_no_history_while_other_windows_share_it() {
             .visit("https://news.example.com/")
             .is_some()
     );
+    primary.save_history().unwrap();
     let reopened = Store::open(folder.path()).unwrap();
     let urls: Vec<String> = reopened
         .history()

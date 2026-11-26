@@ -46,6 +46,7 @@ const MATCH_RULES: [MatchRule; 6] = [
     MatchRule::RegularExpression,
     MatchRule::Never,
 ];
+const SECURE_SCHEME: &str = "https";
 
 fn url_of(uri: &str) -> Option<Url> {
     match uri.contains("://") {
@@ -61,9 +62,17 @@ fn base_domain(url: &Url) -> Option<&str> {
     }
 }
 
+fn same_domain(first: &Url, second: &Url) -> bool {
+    base_domain(first).is_some_and(|domain| Some(domain) == base_domain(second))
+}
+
 fn same_host(first: &Url, second: &Url) -> bool {
     first.host_str().is_some()
         && (first.host_str(), first.port()) == (second.host_str(), second.port())
+}
+
+fn downgraded(login: &Url, page: &Url) -> bool {
+    login.scheme() == SECURE_SCHEME && page.scheme() != SECURE_SCHEME
 }
 
 impl TryFrom<u8> for MatchRule {
@@ -103,12 +112,14 @@ impl SealedUri {
 }
 
 impl LoginUri {
+    fn same_site(&self, page: &Url, site: fn(&Url, &Url) -> bool) -> bool {
+        url_of(&self.uri).is_some_and(|login| !downgraded(&login, page) && site(&login, page))
+    }
+
     pub fn matches(&self, page: &Page) -> bool {
         match self.rule {
-            MatchRule::Domain => url_of(&self.uri).is_some_and(|url| {
-                base_domain(&url).is_some_and(|domain| Some(domain) == base_domain(&page.url))
-            }),
-            MatchRule::Host => url_of(&self.uri).is_some_and(|url| same_host(&url, &page.url)),
+            MatchRule::Domain => self.same_site(&page.url, same_domain),
+            MatchRule::Host => self.same_site(&page.url, same_host),
             MatchRule::StartsWith => page.address.starts_with(self.uri.as_str()),
             MatchRule::Exact => page.address == self.uri,
             MatchRule::RegularExpression => RegexBuilder::new(&self.uri)

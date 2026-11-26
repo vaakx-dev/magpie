@@ -1,10 +1,29 @@
 use std::collections::HashSet;
 
-use magpie_engine::blocker::{Resource, Shield};
+use magpie_engine::blocker::{Resource, Shield, filter_list};
 use url::Url;
 
 fn url(text: &str) -> Url {
     Url::parse(text).unwrap()
+}
+
+#[test]
+fn captive_portal_pages_are_not_mistaken_for_filter_lists() {
+    let portals = [
+        "<!DOCTYPE html><html><body>Sign in to Hotel Wi-Fi</body></html>",
+        "\n  <html lang=\"en\"><head><title>Airport Wi-Fi</title></head></html>",
+        "\u{feff}<!doctype html>\n<title>Accept terms</title>",
+        "<?xml version=\"1.0\"?><WISPAccessGatewayParam/>",
+        "",
+        "  \n",
+    ];
+    for portal in portals {
+        assert!(!filter_list(portal), "{portal:?}");
+    }
+    assert!(filter_list(
+        "[Adblock Plus 2.0]\n! Title: EasyList\n||ads.example^"
+    ));
+    assert!(filter_list("! Title: uBlock filters\nexample.com##.ad"));
 }
 
 #[test]
