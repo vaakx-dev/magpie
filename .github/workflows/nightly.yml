@@ -144,10 +144,10 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v5
         with:
-          path: assets
+          path: nightly-assets
           merge-multiple: true
       - name: Write checksums
-        working-directory: assets
+        working-directory: nightly-assets
         run: sha256sum Magpie-* > checksums.txt
       - name: Write notes
         env:
@@ -171,5 +171,8 @@ jobs:
           SHA: ${{ needs.version.outputs.sha }}
           TITLE: ${{ needs.version.outputs.title }}
         run: |
-          gh release delete "$TAG" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
-          gh release create "$TAG" assets/* --prerelease --target "$SHA" --title "$TITLE" --notes-file notes.md --repo "$GITHUB_REPOSITORY"
+          for stale in published draft; do
+            gh release delete "$TAG" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || break
+          done
+          gh release create "$TAG" nightly-assets/* --draft --prerelease --target "$SHA" --title "$TITLE" --notes-file notes.md --repo "$GITHUB_REPOSITORY"
+          gh release edit "$TAG" --draft=false --repo "$GITHUB_REPOSITORY"
