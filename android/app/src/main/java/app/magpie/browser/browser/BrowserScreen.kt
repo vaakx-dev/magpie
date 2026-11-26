@@ -1,6 +1,5 @@
 package app.magpie.browser.browser
 
-import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -34,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -84,7 +84,8 @@ fun BrowserScreen(browser: Browser) {
     BackHandler(enabled = fullScreen) { tab?.session?.exitFullScreen() }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).then(insets)) {
         Box(Modifier.weight(1f).fillMaxWidth().then(page).onGloballyPositioned { hero.page = it.bounds() }) {
-            tab?.let { Page(it, onView = { created -> hero.view = created }) }
+            val pullable = panel == null && !hero.shown && !fullScreen && tab?.blank == false
+            tab?.let { Page(it, pullable, onView = { created -> hero.view = created }) }
             if (!fullScreen) {
                 if (tab?.blank != false) Welcome()
                 Progress(tab?.progress ?: PROGRESS_DONE)
@@ -121,20 +122,20 @@ fun BrowserScreen(browser: Browser) {
     }
 }
 
-private fun autofillable(view: GeckoView): GeckoView = view.apply { importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES }
-
 @Composable
-private fun Page(tab: Tab, onView: (GeckoView?) -> Unit) {
+private fun Page(tab: Tab, pullable: Boolean, onView: (GeckoView?) -> Unit) {
+    val circle = MaterialTheme.colorScheme.surface.toArgb()
+    val spinner = MaterialTheme.colorScheme.onSurface.toArgb()
     AndroidView(
-        factory = { context -> autofillable(GeckoView(context)).also(onView) },
-        update = { view ->
-            if (view.session != tab.session) {
-                view.releaseSession()
-                view.setSession(tab.session)
-            }
+        factory = { context -> PageLayout(context).also { onView(it.page) } },
+        update = { layout ->
+            layout.isEnabled = pullable
+            layout.paint(circle, spinner)
+            layout.reloadOnPull(tab.session)
+            layout.show(tab.session)
         },
         onRelease = {
-            it.releaseSession()
+            it.page.releaseSession()
             onView(null)
         },
         modifier = Modifier.fillMaxSize(),

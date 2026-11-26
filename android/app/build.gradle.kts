@@ -89,6 +89,7 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.swiperefreshlayout)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.icons)
