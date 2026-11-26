@@ -47,8 +47,8 @@ android {
         applicationId = "app.magpie.browser"
         minSdk = 26
         targetSdk = 35
-        versionCode = option("magpieVersionCode")?.toInt() ?: 2
-        versionName = option("magpieVersionName") ?: "0.1.1"
+        versionCode = option("magpieVersionCode")?.toInt() ?: 3
+        versionName = option("magpieVersionName") ?: "0.1.2"
         buildConfigField("String", "BUILD_SHA", "\"${option("magpieBuildSha").orEmpty()}\"")
     }
 

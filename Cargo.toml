@@ -1,6 +1,6 @@
 [package]
 name = "magpie"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Magpie, a fast Arc-style web browser: a GPUI shell around Windows WebView2"
 license = "MIT"

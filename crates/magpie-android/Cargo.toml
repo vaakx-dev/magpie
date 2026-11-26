@@ -1,6 +1,6 @@
 [package]
 name = "magpie-android"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "JNI bridge from Magpie's Android app to its Rust engines"
 license = "MIT"
