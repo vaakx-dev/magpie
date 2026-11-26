@@ -7,11 +7,16 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import app.magpie.browser.BuildConfig
 import app.magpie.browser.browser.Browser
 import app.magpie.browser.core.MagpieCore
 import app.magpie.browser.focus.Distraction
+import app.magpie.browser.sponsorblock.ENABLED
+import app.magpie.browser.sponsorblock.SHOW_SKIP_NOTICE
+import app.magpie.browser.sponsorblock.View
 import app.magpie.browser.theme.Choices
 import app.magpie.browser.theme.Note
 import app.magpie.browser.theme.Section
@@ -35,10 +40,70 @@ private fun Search(settings: Settings) {
     Card(SearchEngine.entries.map { engine -> { PickItem(engine.label, settings.searchEngine == engine) { settings.searchEngine = engine } } })
 }
 
+private const val NEEDS_CORE = "Needs Magpie's core library, which isn't in this build."
+
+@Composable
+private fun SkipSwitches(settings: Settings, view: View) {
+    fun switch(key: String, on: Boolean) {
+        settings.sponsorBlock = settings.sponsorBlock.switch(key, on)
+    }
+    Card(
+        listOf(
+            {
+                SwitchItem(
+                    null,
+                    "SponsorBlock (YouTube)",
+                    checked = view.enabled,
+                    onChange = { switch(ENABLED, it) },
+                    detail = "Skips segments the SponsorBlock community marks in YouTube videos",
+                )
+            },
+            {
+                SwitchItem(
+                    null,
+                    "Show skip notice",
+                    checked = view.showSkipNotice,
+                    onChange = { switch(SHOW_SKIP_NOTICE, it) },
+                    detail = "Says what was skipped, with a button to go back",
+                )
+            },
+        ),
+    )
+    Section("Skip these segments")
+    Card(
+        view.categories.map { category ->
+            { SwitchItem(null, category.label, checked = category.on, onChange = { switch(category.key, it) }, detail = category.description) }
+        },
+    )
+}
+
+@Composable
+private fun PausedChannels(settings: Settings, channels: List<String>) {
+    if (channels.isEmpty()) return
+    Section("Paused channels")
+    Card(
+        channels.map { channel ->
+            {
+                Item(null, channel, onClick = {}, detail = "Nothing is skipped on this channel") {
+                    TextButton(onClick = { settings.sponsorBlock = settings.sponsorBlock.resume(channel) }) { Text("Remove") }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun SponsorBlockSettings(settings: Settings) {
+    Section("SponsorBlock")
+    val view = settings.sponsorBlock.view ?: return Note(NEEDS_CORE)
+    SkipSwitches(settings, view)
+    PausedChannels(settings, view.channels)
+}
+
 @Composable
 private fun DistractionBlocker(settings: Settings) {
     Section("Distraction Blocker")
-    if (!MagpieCore.loaded) Note("Needs Magpie's core library, which isn't in this build.")
+    if (!MagpieCore.loaded) Note(NEEDS_CORE)
     Card(
         Distraction.entries.map { distraction ->
             {
@@ -57,6 +122,7 @@ private fun DistractionBlocker(settings: Settings) {
 
 @Composable
 private fun Addons(settings: Settings) {
+    SponsorBlockSettings(settings)
     DistractionBlocker(settings)
     Section("Media")
     Card(

@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use magpie_engine::{bitwarden::CipherId, update::Channel};
+use magpie_engine::{bitwarden::CipherId, sponsorblock, update::Channel};
 use serde::Serialize;
 
 use crate::{
@@ -15,7 +15,6 @@ use crate::{
     import::{Profile as ImportProfile, Report},
     locale::{Locale, Text},
     reader::{Font, TextSize},
-    sponsorblock::Category,
     storage::{
         permissions::{self, Kind, Origin, Rules},
         profile::{ProfileId, Profiles},
@@ -314,23 +313,6 @@ pub struct SitePermission {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct Segment {
-    key: &'static str,
-    label: &'static str,
-    description: &'static str,
-    color: &'static str,
-    on: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct SponsorBlock {
-    enabled: bool,
-    show_skip_notice: bool,
-    categories: Vec<Segment>,
-    channels: Vec<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct DarkSite {
     site: String,
     mode: Mode,
@@ -350,7 +332,7 @@ pub struct State {
     paused_sites: BTreeSet<String>,
     zooms: Vec<SiteZoom>,
     permissions: Vec<SitePermission>,
-    sponsorblock: SponsorBlock,
+    sponsorblock: sponsorblock::View,
     dark_sites: Vec<DarkSite>,
     passwords: Passwords,
     profiles: Vec<ProfileRow>,
@@ -438,26 +420,6 @@ fn site_permissions(sites: &BTreeMap<Origin, Rules>, locale: Locale) -> Vec<Site
             })
         })
         .collect()
-}
-
-fn sponsorblock(settings: &Settings) -> SponsorBlock {
-    let config = &settings.sponsorblock;
-    let categories = Category::ALL
-        .into_iter()
-        .map(|category| Segment {
-            key: category.name(),
-            label: category.label(),
-            description: category.description(),
-            color: category.color(),
-            on: config.categories.contains(category),
-        })
-        .collect();
-    SponsorBlock {
-        enabled: config.enabled,
-        show_skip_notice: config.show_skip_notice,
-        categories,
-        channels: config.channel_allowlist.clone(),
-    }
 }
 
 fn dark_sites(settings: &Settings) -> Vec<DarkSite> {
@@ -556,7 +518,7 @@ impl State {
             paused_sites,
             zooms: site_zooms(zooms),
             permissions: site_permissions(permissions, locale),
-            sponsorblock: sponsorblock(settings),
+            sponsorblock: sponsorblock::View::from(&settings.sponsorblock),
             dark_sites: dark_sites(settings),
             passwords,
             profiles: profile_rows(profiles, locale),

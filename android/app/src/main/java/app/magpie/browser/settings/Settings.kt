@@ -9,6 +9,7 @@ import app.magpie.browser.focus.Distraction
 import app.magpie.browser.focus.Focus
 import app.magpie.browser.password.Service
 import app.magpie.browser.privacy.Privacy
+import app.magpie.browser.sponsorblock.SponsorBlock
 import app.magpie.browser.update.Channel
 import java.net.URLEncoder
 import kotlin.properties.ReadWriteProperty
@@ -55,6 +56,7 @@ private const val BACKGROUND_PLAY = "background_play"
 private const val AUTO_UPDATE = "auto_update"
 private const val UPDATE_CHANNEL = "update_channel"
 private const val PASSWORD_SERVICE = "password_service"
+private const val SPONSORBLOCK = "sponsorblock"
 
 class Settings(private val preferences: SharedPreferences) {
     var theme: ThemeMode by stored(enumValue(THEME, ThemeMode.System)) { putString(THEME, it.name) }
@@ -87,6 +89,10 @@ class Settings(private val preferences: SharedPreferences) {
 
     var focus: Focus by stored(storedFocus()) { focus ->
         Distraction.entries.forEach { putBoolean(it.key, focus.blocks(it)) }
+    }
+
+    var sponsorBlock: SponsorBlock by stored(SponsorBlock(preferences.getString(SPONSORBLOCK, null).orEmpty())) {
+        putString(SPONSORBLOCK, it.config)
     }
 
     private fun <T> stored(initial: T, write: SharedPreferences.Editor.(T) -> Unit): ReadWriteProperty<Any?, T> =

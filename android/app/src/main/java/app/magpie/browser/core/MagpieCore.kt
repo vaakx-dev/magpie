@@ -16,6 +16,16 @@ object MagpieCore {
 
     external fun focusRedirect(blocked: String, url: String): String?
 
+    external fun sponsorBlockScript(): String
+
+    external fun sponsorBlockView(config: String): String
+
+    external fun sponsorBlockSwitch(config: String, key: String, on: Boolean): String
+
+    external fun sponsorBlockResume(config: String, channel: String): String
+
+    external fun sponsorBlockAnswer(config: String, request: String): String?
+
     external fun cachedFilters(dataDir: String): ByteArray?
 
     external fun refreshedFilters(dataDir: String): ByteArray?

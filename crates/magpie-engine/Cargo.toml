@@ -2,7 +2,7 @@
 name = "magpie-engine"
 version = "0.1.2"
 edition = "2024"
-description = "Magpie's platform-independent engines: tracker stripping, ad blocking and the Bitwarden vault"
+description = "Magpie's platform-independent engines: tracker stripping, ad blocking, SponsorBlock and the Bitwarden vault"
 license = "MIT"
 repository.workspace = true
 authors.workspace = true

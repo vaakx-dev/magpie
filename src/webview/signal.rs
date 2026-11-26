@@ -14,7 +14,8 @@ use super::{
     media::Track,
     permission::Prompt as PermissionPrompt,
 };
-use crate::{find::Matches, internal, reader, sponsorblock::Request, zoom::Step};
+use crate::{find::Matches, internal, reader, zoom::Step};
+use magpie_engine::sponsorblock::Request;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct History {

@@ -2,10 +2,12 @@ use std::{fs, path::PathBuf};
 
 use magpie::{
     reader::{self, Font, TextSize},
-    sponsorblock::{self, Category},
     zoom::Zoom,
 };
-use magpie_engine::update::{Channel, Repo};
+use magpie_engine::{
+    sponsorblock::{self, Category},
+    update::{Channel, Repo},
+};
 use url::Url;
 
 use magpie::config::{

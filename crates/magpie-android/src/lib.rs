@@ -1,6 +1,7 @@
 mod address;
 mod focus;
 mod java;
+mod sponsorblock;
 mod update;
 mod vault;
 
@@ -14,7 +15,7 @@ use jni::{
     objects::{JClass, JString},
     sys::{jboolean, jbyteArray, jstring},
 };
-use magpie_engine::{bitwarden::password, blocker::snapshot};
+use magpie_engine::{bitwarden::password, blocker::snapshot, sponsorblock::Bridge};
 
 const FILTERS_FOLDER: &str = "filters";
 const BITWARDEN_FOLDER: &str = "bitwarden";
@@ -83,6 +84,79 @@ pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_focusRedirect<'lo
     };
     focus::redirect(&focus::rules(&blocked), &url)
         .map_or(null_mut(), |watch| java::string(&mut env, &watch))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_sponsorBlockScript<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+) -> jstring {
+    java::string(&mut env, Bridge::GeckoView.script())
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_sponsorBlockView<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    config: JString<'local>,
+) -> jstring {
+    let Some(config) = java::text(&mut env, &config) else {
+        return null_mut();
+    };
+    java::string(&mut env, &sponsorblock::view(&config))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_sponsorBlockSwitch<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    config: JString<'local>,
+    key: JString<'local>,
+    on: jboolean,
+) -> jstring {
+    let (Some(config), Some(key)) = (java::text(&mut env, &config), java::text(&mut env, &key))
+    else {
+        return null_mut();
+    };
+    java::string(
+        &mut env,
+        &sponsorblock::switched(&config, &key, java::truth(on)),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_sponsorBlockResume<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    config: JString<'local>,
+    channel: JString<'local>,
+) -> jstring {
+    let (Some(config), Some(channel)) = (
+        java::text(&mut env, &config),
+        java::text(&mut env, &channel),
+    ) else {
+        return null_mut();
+    };
+    java::string(&mut env, &sponsorblock::resumed(&config, &channel))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_app_magpie_browser_core_MagpieCore_sponsorBlockAnswer<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    config: JString<'local>,
+    request: JString<'local>,
+) -> jstring {
+    let (Some(config), Some(request)) = (
+        java::text(&mut env, &config),
+        java::text(&mut env, &request),
+    ) else {
+        return null_mut();
+    };
+    match sponsorblock::answer(&config, &request) {
+        Some(reply) => java::string(&mut env, &reply),
+        None => null_mut(),
+    }
 }
 
 #[unsafe(no_mangle)]

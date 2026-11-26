@@ -5,7 +5,7 @@ use super::{
     script,
     signal::{Signal, Signals, text},
 };
-use crate::sponsorblock::{Request, SCRIPT};
+use magpie_engine::sponsorblock::{Bridge, Request};
 
 fn request(args: &ICoreWebView2WebMessageReceivedEventArgs) -> Result<Option<Request>> {
     let json = text(|value| unsafe { args.WebMessageAsJson(value) })?;
@@ -13,7 +13,7 @@ fn request(args: &ICoreWebView2WebMessageReceivedEventArgs) -> Result<Option<Req
 }
 
 pub fn wire(webview: &ICoreWebView2, signals: Signals) -> Result<()> {
-    script::install(webview, SCRIPT)?;
+    script::install(webview, Bridge::WebView2.script())?;
     let handler = WebMessageReceivedEventHandler::create(Box::new(move |_, args| {
         let Some(args) = args else {
             return Ok(());

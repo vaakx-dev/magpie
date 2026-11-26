@@ -20,7 +20,7 @@ const ENABLED: &str = "enabled";
 const SHOW_SKIP_NOTICE: &str = "show_skip_notice";
 const ALLOWED_CHANNEL: &str = "allowed_channel";
 
-fn switch(on: bool) -> &'static str {
+pub fn switch(on: bool) -> &'static str {
     if on { ON } else { OFF }
 }
 

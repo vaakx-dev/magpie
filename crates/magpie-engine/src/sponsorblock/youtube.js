@@ -1,7 +1,6 @@
-(() => {
-  const bridge = window.chrome && window.chrome.webview;
+(connect) => {
   const youtube = /(^|\.)youtube\.com$/.test(location.hostname);
-  if (window !== window.top || !bridge || !youtube) return;
+  if (window !== window.top || !youtube) return;
 
   const REQUEST = "magpie_sponsorblock_request";
   const REPLY = "magpie_sponsorblock_segments";
@@ -12,10 +11,11 @@
   const toast = { element: null, timer: 0 };
 
   const playerVideo = () => document.querySelector("#movie_player video, #shorts-player video");
+  const pageSide = (object) => object?.wrappedJSObject ?? object;
   const details = (event) =>
-    event?.detail?.response?.playerResponse?.videoDetails ??
-    document.getElementById("movie_player")?.getPlayerResponse?.()?.videoDetails ??
-    window.ytInitialPlayerResponse?.videoDetails;
+    pageSide(event)?.detail?.response?.playerResponse?.videoDetails ??
+    pageSide(document.getElementById("movie_player"))?.getPlayerResponse?.()?.videoDetails ??
+    pageSide(window).ytInitialPlayerResponse?.videoDetails;
 
   const clearMarkers = () => document.querySelectorAll("." + MARKER_CLASS).forEach((marker) => marker.remove());
   const marker = (skip, duration) => {
@@ -94,6 +94,7 @@
   const activeSkip = (time) =>
     state.skips.findIndex((skip, index) => !state.unskipped.has(index) && time >= skip.start && time < skip.end);
   const skipAhead = (event) => {
+    if (location.href !== state.href) request();
     const video = event.target;
     if (!(video instanceof HTMLVideoElement) || !video.closest(PLAYERS) || video.closest(".ad-showing")) return;
     const index = activeSkip(video.currentTime);
@@ -118,7 +119,7 @@
     if (location.href !== state.href) reset();
     const video = details(event);
     state.request += 1;
-    bridge.postMessage({
+    send({
       kind: REQUEST,
       request: state.request,
       address: location.href,
@@ -126,15 +127,14 @@
       channel_name: video?.author ?? null,
     });
   };
-  const receive = (event) => {
-    const reply = event.data;
+  const receive = (reply) => {
     if (reply?.kind !== REPLY || reply.request !== state.request) return;
     state.skips = reply.skips;
     state.notice = reply.notice;
     drawMarkers();
   };
 
-  bridge.addEventListener("message", receive);
+  const send = connect(receive);
   document.addEventListener("timeupdate", skipAhead, true);
   document.addEventListener("durationchange", drawMarkers, true);
   document.addEventListener("yt-navigate-finish", request);
@@ -144,4 +144,4 @@
   } else {
     request();
   }
-})();
+}

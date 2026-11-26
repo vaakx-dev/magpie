@@ -28,7 +28,8 @@ enum class Category(val label: String, val icon: ImageVector, private val terms:
     Addons(
         "Add-ons",
         Icons.Outlined.Extension,
-        listOf("Distraction Blocker") + Distraction.entries.map(Distraction::label) + listOf("Background play", "Reader mode", "Force dark mode"),
+        listOf("SponsorBlock", "Show skip notice", "Skip these segments", "Paused channels", "Distraction Blocker") +
+            Distraction.entries.map(Distraction::label) + listOf("Background play", "Reader mode", "Force dark mode"),
     ),
     About(
         "About",

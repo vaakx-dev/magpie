@@ -1,8 +1,8 @@
 use std::time::{Duration, Instant};
 
-use magpie::sponsorblock::{
+use magpie_engine::sponsorblock::{
     Action, Cache, Categories, Category, Channel, Config, Reply, Request, Segment, Skip, VideoId,
-    api, skips,
+    View, api, skips, switch,
 };
 use url::Url;
 
@@ -250,4 +250,36 @@ fn bridge_reads_page_requests_and_writes_replies_the_script_understands() {
             "skips": [{"start": 10.0, "end": 30.5, "label": "Sponsor", "color": "#00d400"}],
         })
     );
+}
+
+#[test]
+fn switches_persist_through_the_saved_text() {
+    let mut config = Config::default();
+    config.set("enabled", switch(false));
+    config.set("filler", switch(true));
+    config.set("sponsor", switch(false));
+    let saved = Config::parse(&config.text());
+    assert!(!saved.enabled);
+    assert!(saved.categories.contains(Category::Filler));
+    assert!(!saved.categories.contains(Category::Sponsor));
+}
+
+#[test]
+fn view_lists_every_category_with_the_default_switches() {
+    let view = serde_json::to_value(View::from(&Config::default())).unwrap();
+    let on: Vec<&str> = view["categories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|category| category["on"] == true)
+        .map(|category| category["key"].as_str().unwrap())
+        .collect();
+    assert_eq!(view["enabled"], true);
+    assert_eq!(view["show_skip_notice"], true);
+    assert_eq!(
+        view["categories"].as_array().unwrap().len(),
+        Category::ALL.len()
+    );
+    assert_eq!(on, ["sponsor", "selfpromo", "interaction"]);
+    assert_eq!(view["channels"], serde_json::json!([]));
 }

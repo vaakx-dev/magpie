@@ -1,6 +1,7 @@
 package app.magpie.browser.browser
 
 import android.content.Context
+import app.magpie.browser.core.MagpieCore
 import app.magpie.browser.focus.Focus
 import app.magpie.browser.privacy.Filter
 import app.magpie.browser.privacy.Privacy
@@ -54,6 +55,9 @@ private fun blockingMessage(privacy: Privacy): JSONObject =
 
 private fun focusMessage(focus: Focus): JSONObject =
     JSONObject().put("kind", "focus").put("script", focus.script()).put("update", focus.update())
+
+private fun sponsorBlockMessage(): JSONObject =
+    JSONObject().put("kind", "sponsorblock").put("script", if (MagpieCore.loaded) MagpieCore.sponsorBlockScript() else null)
 
 private fun snapshotMessage(snapshot: ByteArray): JSONObject =
     JSONObject().put("kind", "snapshot").put("snapshot", Base64.getEncoder().encodeToString(snapshot))
@@ -122,6 +126,7 @@ class Engine(context: Context, private val settings: Settings, private val scope
         port.setDelegate(this)
         port.postMessage(blockingMessage(settings.privacy))
         port.postMessage(focusMessage(settings.focus))
+        port.postMessage(sponsorBlockMessage())
         scope.launch {
             sendSnapshot(Filter::cachedSnapshot)
             sendSnapshot(Filter::refreshedSnapshot)

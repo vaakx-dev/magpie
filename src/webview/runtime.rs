@@ -46,7 +46,6 @@ use crate::{
     config::{Language, Privacy, Settings, Switch},
     darkmode, reader,
     role::Role,
-    sponsorblock::{self, Reply, Request},
     storage::{
         permissions::{Kind, Origin, Permissions, State},
         profile::ProfileId,
@@ -56,6 +55,7 @@ use crate::{
 use magpie_engine::{
     blocker::{Shield, site},
     focus::Focus,
+    sponsorblock::{self, Reply, Request},
 };
 
 const CONTAINER_CLASS: PCWSTR = w!("MagpieViewport");

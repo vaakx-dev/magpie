@@ -189,6 +189,9 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         portraitVideo = enabled && meta != null && meta.height > meta.width
     }
 
+    override fun onMessage(nativeApp: String, message: Any, sender: WebExtension.MessageSender): GeckoResult<Any> =
+        browser.skips(message.toString())
+
     override fun onConnect(port: WebExtension.Port) {
         this.port = port
         port.setDelegate(this)

@@ -23,12 +23,13 @@ pub use update::Updates;
 use crate::{
     darkmode::{self, Mode},
     locale::Locale,
-    reader, sponsorblock,
+    reader,
     zoom::Zoom,
 };
 use magpie_engine::{
     file,
     focus::{Focus, Rule},
+    sponsorblock,
     update::Repo,
 };
 

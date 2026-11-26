@@ -10,6 +10,7 @@ const decoder = new TextDecoder();
 let blocker;
 let blocking = true;
 let focus = {};
+let sponsorBlock;
 
 const exchange = (length) => {
   const pointer = blocker.exchange(length);
@@ -45,8 +46,8 @@ const hide = ({ tabId, frameId, url }) => {
   if (code) browser.tabs.insertCSS(tabId, { code, frameId, cssOrigin: "user", runAt: "document_start" });
 };
 
-const blockDistractions = ({ tabId, frameId, url }) => {
-  if (focus.script && WEB_PAGE.test(url)) browser.tabs.executeScript(tabId, { code: focus.script, frameId, runAt: "document_start" });
+const inject = (code, { tabId, frameId, url }) => {
+  if (code && WEB_PAGE.test(url)) browser.tabs.executeScript(tabId, { code, frameId, runAt: "document_start" });
 };
 
 const refocus = (tabs) => {
@@ -63,6 +64,9 @@ port.onMessage.addListener((message) => {
       focus = message;
       if (focus.update) browser.tabs.query({}).then(refocus);
       return;
+    case "sponsorblock":
+      sponsorBlock = message.script;
+      return;
     case "snapshot":
       ready.then(() => load(message.snapshot));
       return;
@@ -76,4 +80,5 @@ browser.webRequest.onBeforeRequest.addListener(
 );
 
 browser.webNavigation.onCommitted.addListener(hide);
-browser.webNavigation.onCommitted.addListener(blockDistractions);
+browser.webNavigation.onCommitted.addListener((details) => inject(focus.script, details));
+browser.webNavigation.onCommitted.addListener((details) => inject(sponsorBlock, details));

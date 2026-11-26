@@ -20,11 +20,14 @@ import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import app.magpie.browser.space.Spaces
 import app.magpie.browser.update.Updates
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.WebExtension
 
 private const val PREFERENCES = "magpie"
@@ -126,6 +129,13 @@ class Browser(private val context: Context) {
     fun clean(url: String): String = Filter.clean(redirect(url) ?: url, settings.privacy)
 
     fun redirect(url: String): String? = settings.focus.redirect(url)
+
+    fun skips(request: String): GeckoResult<Any> {
+        val sponsorBlock = settings.sponsorBlock
+        val reply = GeckoResult<Any>()
+        scope.launch { reply.complete(withContext(Dispatchers.IO) { sponsorBlock.answer(request) }) }
+        return reply
+    }
 
     fun page(): JSONObject =
         JSONObject().put("kind", "page").put("dark", settings.forceDark).put("backgroundPlay", settings.backgroundPlay)

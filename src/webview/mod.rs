@@ -65,7 +65,6 @@ use crate::{
     find::Matches,
     internal,
     reader::Config as ReaderStyle,
-    sponsorblock::Request,
     storage::{
         permissions::{Kind, Origin, State},
         profile::ProfileId,
@@ -77,7 +76,10 @@ use darkmode::DarkMode;
 use download::Prompt;
 use filter::Filter;
 use focus::Focus;
-use magpie_engine::blocker::{site, web_site};
+use magpie_engine::{
+    blocker::{site, web_site},
+    sponsorblock::Request,
+};
 use media::{Control, Track};
 use native::{Native, Placement, Rounded, report};
 use permission::Access;

@@ -10,7 +10,6 @@ pub mod locale;
 pub mod pages;
 pub mod reader;
 pub mod role;
-pub mod sponsorblock;
 pub mod storage;
 pub mod stream_download;
 pub mod system_theme;
