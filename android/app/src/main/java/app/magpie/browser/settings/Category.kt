@@ -17,7 +17,7 @@ enum class Category(val label: String, val icon: ImageVector, private val terms:
         Icons.Outlined.Layers,
         listOf("Swipe address bar to switch tabs", "Spaces", "Profiles", "New space", "Rename space", "Clear profile data", "Delete space"),
     ),
-    Appearance("Appearance", Icons.Outlined.Palette, listOf("Theme", "Menu side")),
+    Appearance("Appearance", Icons.Outlined.Palette, listOf("Theme", "Menu side") + MenuSide.entries.map(MenuSide::placement)),
     Search("Search", Icons.Outlined.Search, listOf("Default search engine") + SearchEngine.entries.map(SearchEngine::label)),
     Privacy(
         "Privacy & Security",

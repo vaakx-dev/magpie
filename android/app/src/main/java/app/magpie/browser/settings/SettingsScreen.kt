@@ -48,7 +48,7 @@ private fun summary(category: Category, browser: Browser): String {
     val settings = browser.settings
     return when (category) {
         Category.General -> "${browser.spaces.saved.size} spaces · Swipe tabs ${on(settings.swipeTabs)}"
-        Category.Appearance -> "${settings.theme.label} theme · Menu on the ${settings.menuSide.label.lowercase()}"
+        Category.Appearance -> "${settings.theme.label} theme · ${settings.menuSide.placement}"
         Category.Search -> settings.searchEngine.label
         Category.Privacy -> "Ad blocker ${on(settings.privacy.adBlock)} · Tracking protection ${on(settings.privacy.trackingProtection)}"
         Category.Passwords -> settings.passwordService.label

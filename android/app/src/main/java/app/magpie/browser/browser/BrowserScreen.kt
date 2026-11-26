@@ -102,8 +102,9 @@ fun BrowserScreen(browser: Browser) {
                         FindBar(tab, onClose = close)
                     }
                 else -> Box(Modifier.graphicsLayer { alpha = hero.barAlpha; translationY = hero.barShift }) {
-                    AddressBar(browser, swipe, hero, onType = { panel = Panel.Typing }, onMenu = { panel = Panel.Menu })
-                    if (panel == Panel.Menu) MenuPopup(browser, onOpen = { panel = it }, onDismiss = close)
+                    AddressBar(browser, swipe, hero, onType = { panel = Panel.Typing }, onMenu = { panel = Panel.Menu }) {
+                        if (panel == Panel.Menu) MenuPopup(browser, onOpen = { panel = it }, onDismiss = close)
+                    }
                 }
             }
         }

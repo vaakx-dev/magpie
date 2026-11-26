@@ -16,7 +16,12 @@ import kotlin.reflect.KProperty
 
 enum class ThemeMode(val label: String) { System("System"), Light("Light"), Dark("Dark") }
 
-enum class MenuSide(val label: String) { Right("Right"), Left("Left") }
+enum class MenuSide(val label: String) {
+    Left("Left"),
+    Right("Right");
+
+    val placement: String get() = "Menu on the ${label.lowercase()}"
+}
 
 enum class SearchEngine(val label: String, private val template: String) {
     DuckDuckGo("DuckDuckGo", "https://duckduckgo.com/?q=%s"),

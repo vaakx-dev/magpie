@@ -110,10 +110,19 @@ private fun ReloadButton(tab: Tab) {
 }
 
 @Composable
-private fun MenuButton(onClick: () -> Unit) {
-    IconButton(onClick = onClick, shape = SHAPE) {
-        Icon(Icons.Outlined.Menu, contentDescription = "Menu", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface)
+private fun MenuButton(onClick: () -> Unit, menu: @Composable () -> Unit) {
+    Box {
+        IconButton(onClick = onClick, shape = SHAPE) {
+            Icon(Icons.Outlined.Menu, contentDescription = "Menu", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface)
+        }
+        menu()
     }
+}
+
+@Composable
+private fun TabsButton(browser: Browser, hero: Hero) {
+    val outline = if (browser.space.profile == Profile.Private) Outline.Dashed else Outline.Solid
+    IconButton(onClick = hero::open, shape = SHAPE) { Count(browser.spaceTabs.size, outline) }
 }
 
 @Composable
@@ -163,10 +172,8 @@ private fun UrlField(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> U
 }
 
 @Composable
-fun AddressBar(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> Unit, onMenu: () -> Unit) {
+fun AddressBar(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> Unit, onMenu: () -> Unit, menu: @Composable () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val side = browser.settings.menuSide
-    val private = browser.space.profile == Profile.Private
     Row(
         Modifier.fillMaxWidth()
             .background(colors.surface)
@@ -176,12 +183,18 @@ fun AddressBar(browser: Browser, swipe: Swipe, hero: Hero, onType: () -> Unit, o
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (side == MenuSide.Left) MenuButton(onMenu)
-        UrlField(browser, swipe, hero, onType, Modifier.weight(1f))
-        IconButton(onClick = hero::open, shape = SHAPE) {
-            Count(browser.spaceTabs.size, if (private) Outline.Dashed else Outline.Solid)
+        when (browser.settings.menuSide) {
+            MenuSide.Left -> {
+                MenuButton(onMenu, menu)
+                TabsButton(browser, hero)
+                UrlField(browser, swipe, hero, onType, Modifier.weight(1f))
+            }
+            MenuSide.Right -> {
+                UrlField(browser, swipe, hero, onType, Modifier.weight(1f))
+                TabsButton(browser, hero)
+                MenuButton(onMenu, menu)
+            }
         }
-        if (side == MenuSide.Right) MenuButton(onMenu)
     }
 }
 

@@ -23,10 +23,9 @@ import app.magpie.browser.settings.MenuSide
 
 private val SHAPE = RoundedCornerShape(12.dp)
 private val WIDTH = 260.dp
-private val EDGE_INSET = 8.dp
 private val GAP = 6.dp
 
-private class AboveAnchor(private val side: MenuSide, private val insetPx: Int, private val gapPx: Int) : PopupPositionProvider {
+private class AboveAnchor(private val side: MenuSide, private val gapPx: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -34,8 +33,8 @@ private class AboveAnchor(private val side: MenuSide, private val insetPx: Int, 
         popupContentSize: IntSize,
     ): IntOffset {
         val x = when (side) {
-            MenuSide.Left -> anchorBounds.left + insetPx
-            MenuSide.Right -> anchorBounds.right - insetPx - popupContentSize.width
+            MenuSide.Left -> anchorBounds.left
+            MenuSide.Right -> anchorBounds.right - popupContentSize.width
         }
         return IntOffset(x, anchorBounds.top - gapPx - popupContentSize.height)
     }
@@ -44,7 +43,7 @@ private class AboveAnchor(private val side: MenuSide, private val insetPx: Int, 
 @Composable
 fun Floating(side: MenuSide, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val density = LocalDensity.current
-    val position = remember(side, density) { with(density) { AboveAnchor(side, EDGE_INSET.roundToPx(), GAP.roundToPx()) } }
+    val position = remember(side, density) { with(density) { AboveAnchor(side, GAP.roundToPx()) } }
     Popup(popupPositionProvider = position, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
         Surface(
             shape = SHAPE,

@@ -357,7 +357,7 @@ private fun SwitcherMenu(switcher: Switcher, onSettings: () -> Unit, onDismiss: 
         choose { open() }
         onDismiss()
     }
-    Floating(MenuSide.Right, onDismiss = { switcher.menu = false }) {
+    Floating(browser.settings.menuSide, onDismiss = { switcher.menu = false }) {
         Item(Icons.Outlined.Add, "New tab", onClick = { openTab { browser.open(switcher.space) } })
         Item(Icons.Outlined.VisibilityOff, "New private tab", onClick = { openTab(browser::openPrivate) })
         Item(Icons.Outlined.AddToPhotos, "New space", onClick = { choose { switcher.creating = true } })
@@ -372,15 +372,19 @@ private fun SwitcherMenu(switcher: Switcher, onSettings: () -> Unit, onDismiss: 
 
 @Composable
 private fun Toolbar(switcher: Switcher, onSettings: () -> Unit, onDismiss: () -> Unit) {
+    val (menuEdge, segmentsEdge) = when (switcher.browser.settings.menuSide) {
+        MenuSide.Left -> Alignment.CenterStart to Alignment.CenterEnd
+        MenuSide.Right -> Alignment.CenterEnd to Alignment.CenterStart
+    }
     Box(Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 10.dp)) {
-        Box(Modifier.align(Alignment.CenterStart)) { Segments(switcher.mode, switcher.tabsIn(switcher.space).size, switcher::pick) }
+        Box(Modifier.align(segmentsEdge)) { Segments(switcher.mode, switcher.tabsIn(switcher.space).size, switcher::pick) }
         Box(Modifier.align(Alignment.Center)) {
             Plus {
                 switcher.open()
                 onDismiss()
             }
         }
-        Box(Modifier.align(Alignment.CenterEnd)) {
+        Box(Modifier.align(menuEdge)) {
             IconButton(onClick = { switcher.menu = true }, shape = SHAPE) {
                 Icon(Icons.Outlined.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurface)
             }
