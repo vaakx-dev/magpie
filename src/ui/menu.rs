@@ -462,7 +462,7 @@ impl Browser {
         let Some(page) = self.active_page(cx).filter(|url| web_site(url).is_some()) else {
             return item;
         };
-        let dark = Switch::from(self.settings().dark_mode.mode(&page) != Mode::Off);
+        let dark = Switch::from(self.runtime.dark_mode().mode(&page) != Mode::Off);
         item.child(
             self.toggle("menu-dark-mode-site", dark, cx, |browser, _, cx| {
                 browser.toggle_dark_mode(cx)

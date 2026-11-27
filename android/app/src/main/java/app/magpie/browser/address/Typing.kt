@@ -70,7 +70,6 @@ import app.magpie.browser.browser.Tab
 import app.magpie.browser.clipboard.Content
 import app.magpie.browser.clipboard.copy
 import app.magpie.browser.favicon.Favicon
-import app.magpie.browser.favicon.retention
 import app.magpie.browser.favorite.Grid
 
 private val FIELD_SHAPE = RoundedCornerShape(8.dp)

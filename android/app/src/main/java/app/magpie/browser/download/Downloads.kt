@@ -13,11 +13,11 @@ import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
 import app.magpie.browser.storage.JsonFile
+import app.magpie.browser.storage.Retention
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +34,7 @@ import kotlin.coroutines.coroutineContext
 
 enum class Progress { Running, Done, Failed, Cancelled }
 
-class Download(val name: String, val type: String, val total: Long?) {
+class Download(val name: String, val type: String, val total: Long?, val retention: Retention) {
     var progress by mutableStateOf(Progress.Running)
     var received by mutableLongStateOf(0L)
     var uri by mutableStateOf<Uri?>(null)
@@ -51,7 +51,6 @@ private class Target(val uri: Uri, val output: OutputStream, val discard: () -> 
 
 private const val FALLBACK_TYPE = "application/octet-stream"
 private const val DOWNLOADS_FILE = "downloads.json"
-private val KEPT = setOf(Progress.Done, Progress.Failed)
 private val PROGRESS_LABELS = mapOf(
     Progress.Done to "Saved to Downloads",
     Progress.Failed to "Download failed",
@@ -75,36 +74,28 @@ fun Download.open(context: Context) {
     }
 }
 
-private fun Download.record(): Record = Record(name, type, total, progress, received, uri?.toString())
-
-private fun Record.download(): Download = Download(name, type, total).also {
-    it.progress = progress
-    it.received = received
-    it.uri = uri?.let(Uri::parse)
-}
-
 private fun mediaType(response: WebResponse): String =
     response.headers["Content-Type"]?.substringBefore(';')?.trim()?.ifEmpty { null } ?: FALLBACK_TYPE
 
-private fun describe(response: WebResponse): Download {
+private fun describe(response: WebResponse, retention: Retention): Download {
     val type = mediaType(response)
     val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(type)
     val name = fileName(response.headers["Content-Disposition"], response.uri, extension)
-    return Download(name, type, response.headers["Content-Length"]?.toLongOrNull())
+    return Download(name, type, response.headers["Content-Length"]?.toLongOrNull(), retention)
 }
 
 class Downloads(private val context: Context, private val scope: CoroutineScope) {
-    private val file = JsonFile(context, DOWNLOADS_FILE, scope)
-    val list = mutableStateListOf<Download>().apply { addAll(file.read(::records).orEmpty().map { it.download() }) }
+    private val ledger = Ledger(JsonFile(context, DOWNLOADS_FILE, scope))
+    val list: List<Download> get() = ledger.list
     var announced by mutableStateOf<Download?>(null)
         private set
 
-    fun save(response: WebResponse) {
-        val download = describe(response)
-        list.add(0, download)
+    fun save(response: WebResponse, retention: Retention) {
+        val download = describe(response, retention)
+        ledger.add(download)
         announced = download
         when (val body = response.body) {
-            null -> finish(download, Progress.Failed)
+            null -> ledger.finish(download, Progress.Failed)
             else -> download.job = scope.launch { receive(download, body) }
         }
     }
@@ -114,31 +105,23 @@ class Downloads(private val context: Context, private val scope: CoroutineScope)
     }
 
     fun clear() {
-        list.removeAll { it.progress != Progress.Running }
+        ledger.clear()
         if (announced !in list) announced = null
-        persist()
     }
 
     fun flush() {
-        file.flush()
+        ledger.flush()
     }
-
-    private fun finish(download: Download, progress: Progress) {
-        download.progress = progress
-        persist()
-    }
-
-    private fun persist() = file.write(list.filter { it.progress in KEPT }.map { it.record() }.json())
 
     private suspend fun receive(download: Download, body: InputStream) {
         try {
             download.uri = withContext(Dispatchers.IO) { body.use { write(download, it) } }
-            finish(download, Progress.Done)
+            ledger.finish(download, Progress.Done)
         } catch (cancelled: CancellationException) {
             download.progress = Progress.Cancelled
             throw cancelled
         } catch (failure: Exception) {
-            finish(download, Progress.Failed)
+            ledger.finish(download, Progress.Failed)
         }
     }
 

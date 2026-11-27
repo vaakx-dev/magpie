@@ -3,7 +3,7 @@ use std::{path::Path, time::SystemTime};
 use futures::{StreamExt, channel::mpsc::unbounded};
 use gpui::{App, AppContext, Context, Div, Entity};
 
-use super::{browser::Browser, window};
+use super::{browser::Browser, exit, window};
 use crate::{
     config::Updates,
     internal::settings::Section,
@@ -158,7 +158,7 @@ impl Updater {
         match outcome {
             Ok(()) => {
                 self.phase = Phase::Installing { offer };
-                cx.quit();
+                exit::quit(cx);
             }
             Err(fault) => {
                 self.phase = Phase::DownloadFailed {

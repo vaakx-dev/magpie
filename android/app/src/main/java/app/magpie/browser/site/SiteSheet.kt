@@ -55,7 +55,7 @@ private fun Connection(tab: Tab, origin: Origin) {
 private fun Shield(browser: Browser, tab: Tab, site: Site) {
     val privacy = browser.settings.privacy
     if (!privacy.adBlock) return Entry(Icons.Outlined.Shield, "Magpie Shield", onClick = {}, detail = "Turned off for every site in Settings", enabled = false)
-    val blocking = privacy.blocksAdsOn(site)
+    val blocking = privacy.blocksAdsOn(site, tab.retention)
     ToggleEntry(
         Icons.Outlined.Shield,
         "Magpie Shield",
@@ -66,15 +66,15 @@ private fun Shield(browser: Browser, tab: Tab, site: Site) {
 }
 
 @Composable
-private fun ForceDark(browser: Browser, site: Site) {
+private fun ForceDark(browser: Browser, tab: Tab, site: Site) {
     val settings = browser.settings
     val forceDark = settings.forceDark
     ToggleEntry(
         Icons.Outlined.DarkMode,
         "Force dark mode",
-        checked = forceDark.on(site),
-        onChange = { settings.forceDark = forceDark.toggle(site) },
-        detail = if (site in forceDark.sites) "Set for this site" else "Follows your setting",
+        checked = forceDark.on(site, tab.retention),
+        onChange = { settings.forceDark = forceDark.toggle(site, tab.retention) },
+        detail = if (forceDark.chosen(site, tab.retention)) "Set for this site" else "Follows your setting",
     )
 }
 
@@ -127,7 +127,7 @@ fun SiteSheet(browser: Browser, tab: Tab, onDismiss: () -> Unit) {
         Connection(tab, origin)
         Section("This site")
         Shield(browser, tab, site)
-        ForceDark(browser, site)
+        ForceDark(browser, tab, site)
         if (tab.space.profile != Profile.Private) Permissions(browser, origin)
         Section("Data")
         ClearData(browser, site, onDismiss)

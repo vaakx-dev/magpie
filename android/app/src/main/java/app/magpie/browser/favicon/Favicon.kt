@@ -19,8 +19,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import app.magpie.browser.browser.Tab
-import app.magpie.browser.space.Profile
+import app.magpie.browser.storage.Retention
 import app.magpie.browser.theme.host
 
 private const val CORNER_FRACTION = 4
@@ -29,8 +28,6 @@ private const val MONOGRAM_FRACTION = 0.4f
 private const val NO_LETTER = "·"
 
 val LocalFavicons = staticCompositionLocalOf<Favicons> { error("Favicons are not provided") }
-
-val Tab.retention: Retention get() = if (space.profile == Profile.Private) Retention.Memory else Retention.Disk
 
 private fun monogram(url: String): String = host(url).firstOrNull()?.uppercase() ?: NO_LETTER
 

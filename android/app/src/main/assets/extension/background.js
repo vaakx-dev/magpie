@@ -24,6 +24,7 @@ const decoder = new TextDecoder();
 let blocker;
 let blocking = true;
 let paused = new Set();
+let privatePaused = new Set();
 let focus = {};
 let sponsorBlock;
 let filtering = false;
@@ -54,7 +55,9 @@ const settled = (promise) => Promise.race([promise, new Promise((resolve) => set
 
 const site = (url) => (WEB_PAGE.test(url) ? new URL(url).hostname.replace(WWW, "") : undefined);
 
-const active = (page) => blocking && blocker !== undefined && !paused.has(site(page));
+const pausedIn = (incognito) => (incognito ? privatePaused : paused);
+
+const active = (page, incognito) => blocking && blocker !== undefined && !pausedIn(incognito).has(site(page));
 
 const requestPage = ({ frameAncestors, documentUrl, originUrl }) => frameAncestors?.at(-1)?.url ?? documentUrl ?? originUrl ?? "";
 
@@ -72,7 +75,9 @@ const cosmeticCss = (url) => decoder.decode(exchange(blocker.cosmetic_css(write(
 
 const hide = async (details) => {
   const { tabId, frameId, url } = details;
-  if (!WEB_PAGE.test(url) || !active(await framePage(details))) return;
+  if (!WEB_PAGE.test(url)) return;
+  const [page, { incognito }] = await Promise.all([framePage(details), browser.tabs.get(tabId)]);
+  if (!active(page, incognito)) return;
   const code = cosmeticCss(url);
   if (code) browser.tabs.insertCSS(tabId, { code, frameId, cssOrigin: "user", runAt: "document_start" });
 };
@@ -117,6 +122,7 @@ port.onMessage.addListener((message) => {
     case "blocking":
       blocking = message.enabled;
       paused = new Set(message.paused);
+      privatePaused = new Set(message.privatePaused);
       if (!blocking) filters.resolve();
       syncYoutube().then(configured.resolve);
       return;
@@ -138,7 +144,7 @@ filters.promise.then(() => {
 });
 Promise.all([filters.promise, configured.promise]).then(() => port.postMessage({ kind: "ready" }));
 
-const decision = (details) => ({ cancel: active(requestPage(details)) && blocks(details) });
+const decision = (details) => ({ cancel: active(requestPage(details), details.incognito) && blocks(details) });
 
 const decide = (details) => (filtering ? decision(details) : settled(filters.promise).then(() => decision(details)));
 
