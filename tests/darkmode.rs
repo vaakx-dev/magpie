@@ -2,7 +2,7 @@ mod common;
 
 use magpie::{
     config::Switch,
-    darkmode::{Config, Mode},
+    darkmode::{Config, Mode, Overrides},
 };
 use url::Url;
 
@@ -61,6 +61,24 @@ fn turning_a_site_on_while_switched_off_forces_it_dark() {
         Mode::Forced
     );
     assert_eq!(config.mode(&url("https://other.example/")), Mode::Off);
+}
+
+#[test]
+fn overrides_flip_a_site_on_top_of_the_saved_sites() {
+    let mut saved = enabled();
+    saved.toggle(&url("https://excluded.example/"));
+    let mut overrides = Overrides::default();
+
+    overrides.toggle(&saved, &url("https://excluded.example/page"));
+    overrides.toggle(&saved, &url("https://private.example/"));
+    let shown = saved.overridden(&overrides);
+
+    assert_eq!(shown.mode(&url("https://excluded.example/")), Mode::Auto);
+    assert_eq!(shown.mode(&url("https://private.example/")), Mode::Off);
+
+    overrides.toggle(&saved, &url("https://private.example/"));
+    let shown = saved.overridden(&overrides);
+    assert_eq!(shown.mode(&url("https://private.example/")), Mode::Auto);
 }
 
 #[test]

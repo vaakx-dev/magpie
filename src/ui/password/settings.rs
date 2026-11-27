@@ -11,7 +11,7 @@ use crate::{
         Secret,
     },
     locale::{Locale, Text},
-    ui::{browser::Browser, window},
+    ui::{browser::Browser, internal::post_to_settings, window},
     webview::WebView,
 };
 use magpie_engine::bitwarden::{CipherId, Login, Method, Proof, Server};
@@ -179,7 +179,7 @@ impl Browser {
         };
         let json = Reply::logins(rows).json();
         if let Some(view) = view.upgrade() {
-            view.read(cx).post(&json);
+            post_to_settings(view.read(cx), &json);
         }
     }
 

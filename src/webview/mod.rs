@@ -340,12 +340,19 @@ impl WebView {
     fn create(&mut self, cx: &mut Context<Self>) {
         let runtime = Rc::clone(&self.runtime);
         let profile = self.profile.clone();
-        self.creating = cx.spawn(async move |view, cx| match runtime.native(&profile).await {
-            Ok(created) => {
-                view.update(cx, |view, cx| view.attach(created, cx)).ok();
-            }
-            Err(error) => eprintln!("magpie: could not create a WebView2: {error}"),
+        self.creating = cx.spawn(async move |view, cx| {
+            let created = runtime.native(&profile).await;
+            view.update(cx, |view, cx| view.finish_creating(created, cx))
+                .ok();
         });
+    }
+
+    fn finish_creating(&mut self, created: Result<Created>, cx: &mut Context<Self>) {
+        if let Err(error) = created.and_then(|created| self.attach(created, cx)) {
+            eprintln!("magpie: could not create a WebView2: {error}");
+            self.end(cx);
+            cx.notify();
+        }
     }
 
     pub fn url(&self) -> Option<&Url> {
@@ -379,7 +386,10 @@ impl WebView {
     pub fn open(&mut self, url: Url, cx: &mut Context<Self>) {
         match &self.native {
             Some(native) => native.navigate(&url),
-            None => self.url = Some(url),
+            None => {
+                self.url = Some(url);
+                self.recreate_if_crashed(cx);
+            }
         }
         cx.notify();
     }
@@ -395,8 +405,13 @@ impl WebView {
     pub fn reload(&mut self, cx: &mut Context<Self>) {
         match &self.native {
             Some(native) => native.reload(),
-            None if self.crashed => self.create(cx),
-            None => {}
+            None => self.recreate_if_crashed(cx),
+        }
+    }
+
+    fn recreate_if_crashed(&mut self, cx: &mut Context<Self>) {
+        if self.crashed {
+            self.create(cx);
         }
     }
 
@@ -650,6 +665,10 @@ impl WebView {
             Failure::Page => {}
             Failure::Browser => self.lose_browser(),
         }
+        self.end(cx);
+    }
+
+    fn end(&mut self, cx: &mut Context<Self>) {
         self.crashed = true;
         self.loading = false;
         self.present();
@@ -717,12 +736,9 @@ impl WebView {
         self.placement = Some(placement);
     }
 
-    fn attach(&mut self, created: Created, cx: &mut Context<Self>) {
+    fn attach(&mut self, created: Created, cx: &mut Context<Self>) -> Result<()> {
         let (signals, mut receiver) = signal::channel();
-        if let Err(error) = wire(&created, &self.runtime, &signals) {
-            eprintln!("magpie: could not wire a WebView2: {error}");
-            return;
-        }
+        wire(&created, &self.runtime, &signals)?;
         let Created {
             native, generation, ..
         } = created;
@@ -748,6 +764,7 @@ impl WebView {
                 }
             }
         });
+        Ok(())
     }
 
     fn visit(&self) -> Option<Visit> {

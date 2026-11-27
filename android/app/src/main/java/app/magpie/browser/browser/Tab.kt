@@ -14,12 +14,12 @@ import app.magpie.browser.external.Navigation
 import app.magpie.browser.external.fallback
 import app.magpie.browser.external.handoff
 import app.magpie.browser.external.leavesBrowser
-import app.magpie.browser.favicon.retention
 import app.magpie.browser.media.Media
 import app.magpie.browser.permission.Requests
 import app.magpie.browser.prompt.Prompts
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
+import app.magpie.browser.storage.Retention
 import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
@@ -69,7 +69,8 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     private var port: WebExtension.Port? = null
     private val revival = Revival()
 
-    private val remembered = space.profile != Profile.Private
+    val retention = if (space.profile == Profile.Private) Retention.Memory else Retention.Disk
+    private val remembered = retention == Retention.Disk
     private val zooms = if (remembered) browser.zooms else browser.privateZooms
     val prompts = Prompts()
     val permissions = Requests(browser.permissions.takeIf { remembered })
@@ -257,7 +258,7 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
 
     override fun onKill(session: GeckoSession) = end()
 
-    override fun onExternalResponse(session: GeckoSession, response: WebResponse) = browser.downloads.save(response)
+    override fun onExternalResponse(session: GeckoSession, response: WebResponse) = browser.downloads.save(response, retention)
 
     override fun onVisited(session: GeckoSession, url: String, lastVisitedURL: String?, flags: Int): GeckoResult<Boolean> {
         val topLevel = flags and GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL != 0
@@ -309,7 +310,7 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     override fun onPortMessage(message: Any, port: WebExtension.Port) {
         val json = message as? JSONObject ?: return
         when (json.optString("kind")) {
-            "page" -> port.postMessage(browser.page(json.getString("url")).put("zoom", zoom.factor))
+            "page" -> port.postMessage(browser.page(json.getString("url"), retention).put("zoom", zoom.factor))
             "icons" -> browser.favicons.learn(json.getString("page"), strings(json.getJSONArray("urls")), retention)
         }
     }

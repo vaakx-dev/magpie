@@ -215,6 +215,8 @@ impl Browser {
         };
         self.store.session.active = Some(space);
         self.popover = None;
+        self.stop_editing_address(cx);
+        self.close_current_tab_palette(cx);
         self.current_mut().activate(id, Epoch::now());
         self.player.activated(id);
         self.wake(id, cx);

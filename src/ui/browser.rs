@@ -484,6 +484,17 @@ impl Browser {
         self.announce(id, cx);
     }
 
+    pub(super) fn close_current_tab_palette(&mut self, cx: &App) {
+        let current_tab = Mode::Everything(Target::Current);
+        if self
+            .palette
+            .as_ref()
+            .is_some_and(|palette| palette.bar.read(cx).mode() == current_tab)
+        {
+            self.palette = None;
+        }
+    }
+
     fn hide_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.palette = None;
         self.focus.focus(window);
@@ -692,8 +703,15 @@ impl Browser {
     }
 
     pub(super) fn toggle_dark_mode(&mut self, cx: &mut Context<Self>) {
-        if let Some(page) = self.active_page(cx) {
-            self.change_settings(|settings| settings.dark_mode.toggle(&page), cx);
+        let Some(page) = self.active_page(cx) else {
+            return;
+        };
+        match self.store.role().private() {
+            true => {
+                self.runtime.override_dark_mode(&page);
+                self.apply_settings(cx);
+            }
+            false => self.change_settings(|settings| settings.dark_mode.toggle(&page), cx),
         }
     }
 

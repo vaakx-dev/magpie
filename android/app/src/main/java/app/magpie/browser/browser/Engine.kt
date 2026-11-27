@@ -10,6 +10,7 @@ import app.magpie.browser.settings.ThemeMode
 import app.magpie.browser.site.Site
 import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
+import app.magpie.browser.storage.Retention
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,11 +58,15 @@ private fun contentBlocking(privacy: Privacy): ContentBlocking.Settings =
 private fun insecureConnections(privacy: Privacy): Int =
     if (privacy.httpsOnly) GeckoRuntimeSettings.HTTPS_ONLY else GeckoRuntimeSettings.ALLOW_ALL
 
+private fun pausedNames(privacy: Privacy, retention: Retention): JSONArray =
+    JSONArray(privacy.pausedSites.sites(retention).map(Site::name))
+
 private fun blockingMessage(privacy: Privacy): JSONObject =
     JSONObject()
         .put("kind", "blocking")
         .put("enabled", privacy.adBlock)
-        .put("paused", JSONArray(privacy.pausedSites.map(Site::name)))
+        .put("paused", pausedNames(privacy, Retention.Disk))
+        .put("privatePaused", pausedNames(privacy, Retention.Memory))
 
 private fun focusMessage(focus: Focus): JSONObject =
     JSONObject().put("kind", "focus").put("script", focus.script()).put("update", focus.update())

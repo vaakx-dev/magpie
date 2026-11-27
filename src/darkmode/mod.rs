@@ -24,6 +24,9 @@ pub struct Config {
     sites: BTreeMap<String, Mode>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Overrides(BTreeMap<String, Switch>);
+
 #[derive(Serialize)]
 struct Rules<'a> {
     standard: Mode,
@@ -63,18 +66,38 @@ impl Config {
         web_site(page).map_or(Mode::Off, |site| self.site_mode(&site))
     }
 
-    pub fn toggle(&mut self, page: &Url) {
-        let Some(site) = web_site(page) else {
-            return;
-        };
-        let next = match self.site_mode(&site) {
-            Mode::Off => self.turned_on(),
-            Mode::Auto | Mode::Forced => Mode::Off,
-        };
-        match next == self.standard() {
+    fn dark(&self, site: &str) -> Switch {
+        Switch::from(self.site_mode(site) != Mode::Off)
+    }
+
+    fn switched(&self, dark: Switch) -> Mode {
+        match dark {
+            Switch::On => self.turned_on(),
+            Switch::Off => Mode::Off,
+        }
+    }
+
+    fn set_site(&mut self, site: String, dark: Switch) {
+        let mode = self.switched(dark);
+        match mode == self.standard() {
             true => self.sites.remove(&site),
-            false => self.sites.insert(site, next),
+            false => self.sites.insert(site, mode),
         };
+    }
+
+    pub fn toggle(&mut self, page: &Url) {
+        if let Some(site) = web_site(page) {
+            let flipped = self.dark(&site).toggled();
+            self.set_site(site, flipped);
+        }
+    }
+
+    pub fn overridden(&self, overrides: &Overrides) -> Self {
+        let mut config = self.clone();
+        for (site, dark) in &overrides.0 {
+            config.set_site(site.clone(), *dark);
+        }
+        config
     }
 
     pub fn reset(&mut self, site: &str) {
@@ -120,5 +143,14 @@ impl Config {
             .map(|(site, _)| site.as_str())
             .collect();
         sites.join(&format!("{SITE_SEPARATOR} "))
+    }
+}
+
+impl Overrides {
+    pub fn toggle(&mut self, config: &Config, page: &Url) {
+        if let Some(site) = web_site(page) {
+            let flipped = config.overridden(self).dark(&site).toggled();
+            self.0.insert(site, flipped);
+        }
     }
 }

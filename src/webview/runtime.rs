@@ -1,6 +1,6 @@
 use std::{
     cell::{Cell, Ref, RefCell},
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     future::Future,
     path::{Path, PathBuf},
     rc::Rc,
@@ -123,6 +123,7 @@ pub struct Runtime {
     role: Role,
     profiles: RefCell<Profiles>,
     settings: Rc<RefCell<Settings>>,
+    dark_overrides: RefCell<darkmode::Overrides>,
     shield: Arc<Shield>,
     sponsorblock: Arc<sponsorblock::Client>,
     shortcuts: Vec<KeyBinding>,
@@ -233,6 +234,12 @@ impl Environment {
         self.0.running.borrow().clone()
     }
 
+    async fn launched(&self) -> Result<(ICoreWebView2Environment10, Generation)> {
+        let Running { generation, launch } = self.running();
+        let environment = launch.await.inspect_err(|_| self.restart(generation))?;
+        Ok((environment, generation))
+    }
+
     fn restart(&self, dead: Generation) {
         let mut running = self.0.running.borrow_mut();
         if running.generation != dead {
@@ -245,6 +252,10 @@ impl Environment {
     }
 }
 
+fn failed(anchor: &SharedProfile) -> bool {
+    anchor.peek().is_some_and(Result::is_err)
+}
+
 impl Profiles {
     fn of(&mut self, generation: Generation) -> &mut HashMap<Partition, SharedProfile> {
         if self.generation != generation {
@@ -253,6 +264,7 @@ impl Profiles {
                 anchors: HashMap::new(),
             };
         }
+        self.anchors.retain(|_, anchor| !failed(anchor));
         &mut self.anchors
     }
 }
@@ -310,8 +322,8 @@ async fn controller(
     receiver.await.map_err(|_| Error::from(E_ABORT))?
 }
 
-async fn native(parent: HWND, running: Running, partition: Partition) -> Result<Created> {
-    let environment = running.launch.await?;
+async fn native(parent: HWND, browser: Environment, partition: Partition) -> Result<Created> {
+    let (environment, generation) = browser.launched().await?;
     let container = container(parent)?;
     let controller = controller(&environment, &container, &partition).await?;
     let webview = unsafe { controller.CoreWebView2() }?;
@@ -324,7 +336,7 @@ async fn native(parent: HWND, running: Running, partition: Partition) -> Result<
     Ok(Created {
         native,
         environment: environment.into(),
-        generation: running.generation,
+        generation,
     })
 }
 
@@ -337,6 +349,7 @@ impl Runtime {
             environment: setup.environment,
             role: setup.role,
             settings: Rc::new(RefCell::new(settings.clone())),
+            dark_overrides: RefCell::default(),
             shield: setup.shield,
             sponsorblock: Arc::default(),
             shortcuts: setup.shortcuts,
@@ -379,8 +392,8 @@ impl Runtime {
         }
     }
 
-    fn anchor(&self, running: Running, partition: Partition) -> SharedProfile {
-        let page = native(self.parent, running, partition);
+    fn anchor(&self, partition: Partition) -> SharedProfile {
+        let page = native(self.parent, self.environment.clone(), partition);
         let settings = Rc::clone(&self.settings);
         async move {
             let profile = Profile::new(page.await?.native)?;
@@ -397,13 +410,24 @@ impl Runtime {
     }
 
     fn profile(&self, partition: &Partition) -> SharedProfile {
-        let running = self.environment.running();
+        let generation = self.environment.running().generation;
         self.profiles
             .borrow_mut()
-            .of(running.generation)
+            .of(generation)
             .entry(partition.clone())
-            .or_insert_with(|| self.anchor(running, partition.clone()))
+            .or_insert_with(|| self.anchor(partition.clone()))
             .clone()
+    }
+
+    fn uses(&self, partition: &Partition) -> bool {
+        self.role.private() == (*partition == Partition::Private)
+    }
+
+    fn clearable(&self, partition: Partition) -> SharedProfile {
+        match self.uses(&partition) {
+            true => self.profile(&partition),
+            false => self.anchor(partition),
+        }
     }
 
     pub fn forget_profile(&self, profile: &ProfileId) {
@@ -414,7 +438,7 @@ impl Runtime {
         let partition = Partition::Profile(profile.clone());
         let anchor = self
             .take_profile(&partition)
-            .unwrap_or_else(|| self.anchor(self.environment.running(), partition));
+            .unwrap_or_else(|| self.anchor(partition));
         async move { anchor.await?.delete() }
     }
 
@@ -438,8 +462,16 @@ impl Runtime {
         self.settings.borrow().background_play
     }
 
-    pub(super) fn dark_mode(&self) -> Ref<'_, darkmode::Config> {
-        Ref::map(self.settings.borrow(), |settings| &settings.dark_mode)
+    pub fn dark_mode(&self) -> darkmode::Config {
+        let settings = self.settings.borrow();
+        settings.dark_mode.overridden(&self.dark_overrides.borrow())
+    }
+
+    pub fn override_dark_mode(&self, page: &Url) {
+        let settings = self.settings.borrow();
+        self.dark_overrides
+            .borrow_mut()
+            .toggle(&settings.dark_mode, page);
     }
 
     pub(super) fn focus(&self) -> Ref<'_, Focus> {
@@ -512,13 +544,11 @@ impl Runtime {
         &self,
         profiles: &[ProfileId],
     ) -> impl Future<Output = Result<()>> + use<> {
-        let partitions: HashSet<Partition> = profiles
-            .iter()
-            .map(|profile| self.partition(profile))
-            .collect();
-        let anchors: Vec<SharedProfile> = partitions
-            .iter()
-            .map(|partition| self.profile(partition))
+        let regular = profiles.iter().cloned().map(Partition::Profile);
+        let private = self.role.private().then_some(Partition::Private);
+        let anchors: Vec<SharedProfile> = regular
+            .chain(private)
+            .map(|partition| self.clearable(partition))
             .collect();
         async move {
             let clearing = anchors
@@ -539,7 +569,7 @@ impl Runtime {
     pub(super) async fn native(&self, profile: &ProfileId) -> Result<Created> {
         let partition = self.partition(profile);
         let anchor = self.profile(&partition);
-        let page = native(self.parent, self.environment.running(), partition);
+        let page = native(self.parent, self.environment.clone(), partition);
         let (created, profile) = futures::join!(page, anchor);
         report(profile.map(drop));
         created

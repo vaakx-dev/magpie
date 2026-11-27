@@ -25,8 +25,8 @@ import app.magpie.browser.clipboard.Content
 import app.magpie.browser.clipboard.copy
 import app.magpie.browser.menu.Divider
 import app.magpie.browser.menu.Item
-import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
+import app.magpie.browser.storage.Retention
 import app.magpie.browser.theme.Sheet
 import org.mozilla.geckoview.GeckoSession.ContentDelegate.ContextElement
 import org.mozilla.geckoview.GeckoWebExecutor
@@ -37,7 +37,7 @@ private val LIST_PADDING = 10.dp
 fun ContextElement.image(): String? = srcUri?.takeIf { type == ContextElement.TYPE_IMAGE }
 
 private class Actions(private val browser: Browser, private val tab: Tab, private val context: Context, private val close: () -> Unit) {
-    val privately = tab.space.profile == Profile.Private
+    val privately = tab.retention == Retention.Memory
 
     fun openInNewTab(url: String) = openInBackground(url, tab.space, "Opened in new tab")
 
@@ -53,7 +53,7 @@ private class Actions(private val browser: Browser, private val tab: Tab, privat
     fun save(url: String) = finish {
         val flags = if (privately) GeckoWebExecutor.FETCH_FLAGS_PRIVATE else GeckoWebExecutor.FETCH_FLAGS_NONE
         GeckoWebExecutor(browser.engine.runtime).fetch(WebRequest.Builder(url).referrer(tab.url).build(), flags)
-            .accept({ response -> response?.let(browser.downloads::save) }, { notify("Couldn't save image") })
+            .accept({ response -> response?.let { browser.downloads.save(it, tab.retention) } }, { notify("Couldn't save image") })
     }
 
     private fun openInBackground(url: String, space: Space, notice: String) = finish(notice) {

@@ -49,9 +49,16 @@ fn read(import: &Import) -> (String, Imported) {
     }
 }
 
+pub(super) fn post_to_settings(view: &WebView, json: &str) {
+    if view.url().and_then(Page::of) == Some(Page::Settings) {
+        view.post(json);
+    }
+}
+
 pub(super) fn reply(view: &WeakEntity<WebView>, reply: &Reply, cx: &mut AsyncApp) {
     let json = reply.json();
-    view.update(cx, |view, _| view.post(&json)).ok();
+    view.update(cx, |view, _| post_to_settings(view, &json))
+        .ok();
 }
 
 pub(super) fn history_changed(cx: &mut App) {

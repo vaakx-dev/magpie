@@ -24,6 +24,7 @@ import app.magpie.browser.space.Profile
 import app.magpie.browser.space.Space
 import app.magpie.browser.space.Spaces
 import app.magpie.browser.storage.JsonFile
+import app.magpie.browser.storage.Retention
 import app.magpie.browser.update.Updates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -131,7 +132,7 @@ class Browser(private val context: Context) {
     }
 
     fun toggleShield(tab: Tab, site: Site) {
-        settings.privacy = settings.privacy.toggle(site)
+        settings.privacy = settings.privacy.toggle(site, tab.retention)
         engine.protect(settings.privacy)
         tab.session.reload()
     }
@@ -175,10 +176,10 @@ class Browser(private val context: Context) {
         return reply
     }
 
-    fun dark(url: String): Boolean = settings.forceDark.on(Site.of(url))
+    fun dark(url: String, retention: Retention): Boolean = settings.forceDark.on(Site.of(url), retention)
 
-    fun page(url: String): JSONObject =
-        JSONObject().put("kind", "page").put("dark", dark(url)).put("backgroundPlay", settings.backgroundPlay)
+    fun page(url: String, retention: Retention): JSONObject =
+        JSONObject().put("kind", "page").put("dark", dark(url, retention)).put("backgroundPlay", settings.backgroundPlay)
 
     fun background() {
         if (!settings.backgroundPlay) tabs.forEach { it.media?.controller?.pause() }
@@ -208,10 +209,15 @@ class Browser(private val context: Context) {
         val neighbour = siblings.getOrNull(siblings.indexOf(tab) - 1) ?: siblings.getOrNull(1)
         tabs -= tab
         tab.session.close()
-        if (tabs.none { it.space == Space.PRIVATE }) privateZooms = zooms.inMemory()
+        if (tabs.none { it.space == Space.PRIVATE }) endPrivateSession()
         if (selected[tab.space.id] != tab) return
         if (neighbour == null) selected.remove(tab.space.id) else selected[tab.space.id] = neighbour
         wakeSelected()
+    }
+
+    private fun endPrivateSession() {
+        privateZooms = zooms.inMemory()
+        settings.forgetPrivateChoices()
     }
 
     private fun savedTabs(): SavedTabs =
@@ -258,7 +264,7 @@ class Browser(private val context: Context) {
             }
         }
         scope.launch { snapshotFlow { settings.theme }.drop(1).collect(engine::follow) }
-        scope.launch { snapshotFlow { settings.forceDark }.drop(1).collect { tabs.forEach { tab -> tab.darken(dark(tab.url)) } } }
+        scope.launch { snapshotFlow { settings.forceDark }.drop(1).collect { tabs.forEach { tab -> tab.darken(dark(tab.url, tab.retention)) } } }
         scope.launch { snapshotFlow { settings.focus }.drop(1).collect(engine::focus) }
         scope.launch { snapshotFlow { settings.backgroundPlay }.drop(1).collect { enabled -> tabs.forEach { it.playInBackground(enabled) } } }
         scope.launch {

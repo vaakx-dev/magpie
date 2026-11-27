@@ -12,8 +12,10 @@ import app.magpie.browser.onboarding.ONBOARDING_DONE
 import app.magpie.browser.onboarding.onboarded
 import app.magpie.browser.password.Service
 import app.magpie.browser.privacy.Privacy
+import app.magpie.browser.site.Choices
 import app.magpie.browser.site.Site
 import app.magpie.browser.sponsorblock.SponsorBlock
+import app.magpie.browser.storage.Retention
 import app.magpie.browser.update.Channel
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
@@ -132,7 +134,7 @@ class Settings(private val preferences: SharedPreferences) {
         putBoolean(HTTPS_ONLY, it.httpsOnly)
         putBoolean(GLOBAL_PRIVACY_CONTROL, it.globalPrivacyControl)
         putBoolean(CLEAR_ON_EXIT, it.clearOnExit)
-        putStringSet(PAUSED_SITES, it.pausedSites.map(Site::name).toSet())
+        putStringSet(PAUSED_SITES, it.pausedSites.sites(Retention.Disk).map(Site::name).toSet())
     }
 
     var forceDark: ForceDark by stored(::storedForceDark) {
@@ -158,6 +160,11 @@ class Settings(private val preferences: SharedPreferences) {
 
     var sponsorBlock: SponsorBlock by stored({ SponsorBlock(preferences.getString(SPONSORBLOCK, null).orEmpty()) }) {
         putString(SPONSORBLOCK, it.config)
+    }
+
+    fun forgetPrivateChoices() {
+        forceDark = forceDark.forgetPrivate()
+        privacy = privacy.forgetPrivate()
     }
 
     fun saved(): Map<String, Preference> =
@@ -199,7 +206,7 @@ class Settings(private val preferences: SharedPreferences) {
             httpsOnly = preferences.getBoolean(HTTPS_ONLY, defaults.httpsOnly),
             globalPrivacyControl = preferences.getBoolean(GLOBAL_PRIVACY_CONTROL, defaults.globalPrivacyControl),
             clearOnExit = preferences.getBoolean(CLEAR_ON_EXIT, defaults.clearOnExit),
-            pausedSites = preferences.getStringSet(PAUSED_SITES, null).orEmpty().map(::Site).toSet(),
+            pausedSites = Choices(preferences.getStringSet(PAUSED_SITES, null).orEmpty().associate { Site(it) to Unit }),
         )
     }
 }

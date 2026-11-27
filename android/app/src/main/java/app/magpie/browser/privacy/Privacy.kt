@@ -1,6 +1,8 @@
 package app.magpie.browser.privacy
 
+import app.magpie.browser.site.Choices
 import app.magpie.browser.site.Site
+import app.magpie.browser.storage.Retention
 
 data class Privacy(
     val adBlock: Boolean = true,
@@ -9,11 +11,16 @@ data class Privacy(
     val httpsOnly: Boolean = false,
     val globalPrivacyControl: Boolean = true,
     val clearOnExit: Boolean = false,
-    val pausedSites: Set<Site> = emptySet(),
+    val pausedSites: Choices<Unit> = Choices(),
 ) {
-    fun blocksAdsOn(site: Site): Boolean = adBlock && site !in pausedSites
+    fun paused(site: Site, retention: Retention): Boolean = pausedSites.of(site, retention) != null
 
-    fun toggle(site: Site): Privacy = if (site in pausedSites) resume(site) else copy(pausedSites = pausedSites + site)
+    fun blocksAdsOn(site: Site, retention: Retention): Boolean = adBlock && !paused(site, retention)
 
-    fun resume(site: Site): Privacy = copy(pausedSites = pausedSites - site)
+    fun toggle(site: Site, retention: Retention): Privacy =
+        if (paused(site, retention)) resume(site, retention) else copy(pausedSites = pausedSites.with(site, Unit, retention))
+
+    fun resume(site: Site, retention: Retention): Privacy = copy(pausedSites = pausedSites.with(site, null, retention))
+
+    fun forgetPrivate(): Privacy = copy(pausedSites = pausedSites.forgetMemory())
 }

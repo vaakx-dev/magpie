@@ -73,7 +73,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.unit.sp
 import app.magpie.browser.favicon.Favicon
-import app.magpie.browser.favicon.retention
 import app.magpie.browser.menu.Divider
 import app.magpie.browser.menu.Floating
 import app.magpie.browser.menu.Item

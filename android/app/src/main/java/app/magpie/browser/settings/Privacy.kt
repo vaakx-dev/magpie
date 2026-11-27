@@ -18,6 +18,7 @@ import app.magpie.browser.core.MagpieCore
 import app.magpie.browser.permission.Permissions
 import app.magpie.browser.permission.summary
 import app.magpie.browser.site.Site
+import app.magpie.browser.storage.Retention
 import app.magpie.browser.theme.Confirmation
 import app.magpie.browser.theme.Entry
 import app.magpie.browser.theme.Note
@@ -93,14 +94,14 @@ private fun Tracking(settings: Settings) {
 
 @Composable
 private fun PausedSites(settings: Settings) {
-    val paused = settings.privacy.pausedSites.sortedBy(Site::name)
+    val paused = settings.privacy.pausedSites.sites(Retention.Disk).sortedBy(Site::name)
     if (paused.isEmpty()) return
     Section("Magpie Shield paused on")
     Card(
         paused.map { site ->
             {
                 Item(null, site.name, onClick = {}) {
-                    TextAction("Resume", onClick = { settings.privacy = settings.privacy.resume(site) })
+                    TextAction("Resume", onClick = { settings.privacy = settings.privacy.resume(site, Retention.Disk) })
                 }
             }
         },

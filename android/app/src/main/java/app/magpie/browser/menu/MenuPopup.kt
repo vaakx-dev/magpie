@@ -113,9 +113,10 @@ private fun ForceDark(browser: Browser, page: Tab?) {
     val settings = browser.settings
     val forceDark = settings.forceDark
     val site = page?.let { Site.of(it.url) }
-    val toggle = site?.let { { settings.forceDark = forceDark.toggle(it) } }
+    if (page == null || site == null) return Item(Icons.Outlined.DarkMode, "Force Dark Mode", onClick = null)
+    val toggle = { settings.forceDark = forceDark.toggle(site, page.retention) }
     Item(Icons.Outlined.DarkMode, "Force Dark Mode", onClick = toggle) {
-        site?.let { Toggle(forceDark.on(it), onChange = { toggle?.invoke() }) }
+        Toggle(forceDark.on(site, page.retention), onChange = { toggle() })
     }
 }
 
