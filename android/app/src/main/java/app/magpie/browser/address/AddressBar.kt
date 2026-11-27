@@ -97,7 +97,7 @@ private fun follow(target: Float, swipe: Swipe): Float {
 private fun ReloadButton(tab: Tab) {
     val loading = tab.progress < PROGRESS_DONE
     IconButton(
-        onClick = { if (loading) tab.session.stop() else tab.session.reload() },
+        onClick = { if (loading) tab.session.stop() else tab.reload() },
         modifier = Modifier.size(32.dp),
         shape = SHAPE,
     ) {

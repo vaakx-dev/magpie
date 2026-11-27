@@ -24,6 +24,7 @@ mod permission;
 mod preload;
 mod profile;
 mod reader;
+pub mod revival;
 mod runtime;
 mod scheme;
 mod script;
@@ -87,6 +88,7 @@ use magpie_engine::{
 use media::{Control, Track};
 use native::{Native, Placement, Rounded, report};
 use preload::Preloading;
+use revival::{Revival, Revive};
 use runtime::{Created, Generation};
 use scrollbar::Scrollbars;
 use signal::{CurrentPage, History, Signal, Signals};
@@ -168,6 +170,7 @@ pub struct WebView {
     generation: Generation,
     scripts: PageScripts,
     crashed: bool,
+    revival: Revival,
     prompts: Vec<PermissionPrompt>,
     asked: BTreeSet<Kind>,
     login: Login,
@@ -324,6 +327,7 @@ impl WebView {
             generation: Generation::default(),
             scripts: PageScripts::default(),
             crashed: false,
+            revival: Revival::default(),
             prompts: Vec::new(),
             asked: BTreeSet::new(),
             login: Login::default(),
@@ -622,6 +626,9 @@ impl WebView {
         }
         self.visibility = visibility;
         self.shown_or_hidden = Instant::now();
+        if visibility != Visibility::Hidden && self.crashed {
+            self.reload(cx);
+        }
         let Some(native) = &self.native else {
             return;
         };
@@ -638,11 +645,7 @@ impl WebView {
         }
     }
 
-    pub fn crashed(&self) -> bool {
-        self.crashed
-    }
-
-    fn crash(&mut self, failure: Failure) {
+    fn crash(&mut self, failure: Failure, cx: &mut Context<Self>) {
         match failure {
             Failure::Page => {}
             Failure::Browser => self.lose_browser(),
@@ -650,6 +653,10 @@ impl WebView {
         self.crashed = true;
         self.loading = false;
         self.present();
+        match self.revival.ended(Instant::now(), self.visibility) {
+            Revive::Now => self.reload(cx),
+            Revive::WhenShown => {}
+        }
     }
 
     fn lose_browser(&mut self) {
@@ -799,7 +806,7 @@ impl WebView {
             Signal::Permission(prompt) => self.ask(prompt),
             Signal::Login(sighting) => self.login.see(sighting),
             Signal::Submitted(submission) => cx.emit(Event::Submitted(submission)),
-            Signal::Crashed(failure) => self.crash(failure),
+            Signal::Crashed(failure) => self.crash(failure, cx),
         }
         cx.notify();
     }

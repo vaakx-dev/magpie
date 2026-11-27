@@ -767,7 +767,6 @@ impl Browser {
                         self.cutouts.clone(),
                         corner_px,
                     ))
-                    .children(self.crash_notice(&pane.view, cx))
                     .child(self.top_overlays(banners.take(), Some(&pane.view), cx))
                     .children(self.login_dropdown(&pane.view, cx))
                     .into_any_element()
