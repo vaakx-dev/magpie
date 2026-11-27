@@ -2,6 +2,7 @@ package app.magpie.browser.browser
 
 import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -62,11 +63,11 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
     var fullScreen by mutableStateOf(false); private set
     var desktop by mutableStateOf(false); private set
     var held by mutableStateOf<ContextElement?>(null); private set
-    var crashed by mutableStateOf(false); private set
+    var dormant by mutableStateOf(false); private set
     var appLink by mutableStateOf<String?>(null); private set
     private var portraitVideo by mutableStateOf(false)
     private var port: WebExtension.Port? = null
-    private var asleep = false
+    private val revival = Revival()
 
     private val remembered = space.profile != Profile.Private
     private val zooms = if (remembered) browser.zooms else browser.privateZooms
@@ -94,18 +95,22 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
 
     fun load(address: String) {
         url = address
-        session.loadUri(address)
+        if (dormant) wake() else session.loadUri(address)
+    }
+
+    fun reload() {
+        if (dormant) wake() else session.reload()
     }
 
     fun restore(saved: SavedTab) {
         url = saved.url
         title = saved.title
-        asleep = true
+        dormant = true
     }
 
     fun wake() {
-        if (!asleep) return
-        asleep = false
+        if (!dormant) return
+        dormant = false
         session.open(browser.engine.runtime)
         session.loadUri(url)
     }
@@ -142,12 +147,6 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         held = null
     }
 
-    fun recover() {
-        crashed = false
-        session.open(browser.engine.runtime)
-        session.loadUri(url)
-    }
-
     fun openAppLink() {
         val uri = appLink ?: return
         appLink = null
@@ -182,6 +181,15 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         when (handoff(navigation)) {
             Handoff.Open -> leave(request.uri)
             Handoff.Confirm -> appLink = appLink ?: request.uri
+        }
+    }
+
+    private fun end() {
+        dormant = true
+        val presence = if (browser.tab == this) Presence.Shown else Presence.Hidden
+        when (revival.ended(SystemClock.elapsedRealtime(), presence)) {
+            Revive.Now -> wake()
+            Revive.WhenShown -> Unit
         }
     }
 
@@ -245,13 +253,9 @@ class Tab(val id: Long, space: Space, val session: GeckoSession, private val bro
         if (element.linkUri != null || element.image() != null) held = element
     }
 
-    override fun onCrash(session: GeckoSession) {
-        crashed = true
-    }
+    override fun onCrash(session: GeckoSession) = end()
 
-    override fun onKill(session: GeckoSession) {
-        crashed = true
-    }
+    override fun onKill(session: GeckoSession) = end()
 
     override fun onExternalResponse(session: GeckoSession, response: WebResponse) = browser.downloads.save(response)
 

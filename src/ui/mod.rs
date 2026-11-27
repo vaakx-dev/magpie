@@ -5,7 +5,6 @@ mod banner;
 mod browser;
 mod command;
 mod context_menu;
-mod crash;
 mod downloads;
 mod drag;
 mod exit;

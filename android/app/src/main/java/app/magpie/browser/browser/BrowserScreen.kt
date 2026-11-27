@@ -99,7 +99,6 @@ fun BrowserScreen(browser: Browser) {
         Box(Modifier.weight(1f).fillMaxWidth().then(page).onGloballyPositioned { hero.page = it.bounds() }) {
             val pullable = panel == null && !hero.shown && !fullScreen && tab?.blank == false
             tab?.let { Page(it, pullable, onView = { created -> hero.view = created }) }
-            if (tab?.crashed == true) Crashed(tab)
             if (!fullScreen) {
                 if (tab?.blank != false) Welcome()
                 Progress(tab?.progress ?: PROGRESS_DONE)
@@ -171,7 +170,7 @@ private fun Page(tab: Tab, pullable: Boolean, onView: (GeckoView?) -> Unit) {
             layout.isEnabled = pullable
             layout.paint(circle, spinner)
             layout.reloadOnPull(tab.session)
-            if (tab.crashed) layout.hide() else layout.show(tab.session)
+            if (tab.dormant) layout.hide() else layout.show(tab.session)
         },
         onRelease = {
             it.hide()
